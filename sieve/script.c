@@ -407,7 +407,8 @@ static int sieve_removeflag(sieve_imapflags_t *imapflags, const char *flag)
 static int send_notify_callback(sieve_interp_t *interp,
 				void *message_context, 
 				void * script_context, notify_list_t *notify, 
-				char *actions_string, const char **errmsg)
+				char *actions_string __attribute__((unused)),
+				const char **errmsg)
 {
     sieve_notify_context_t nc;
     char *out_msg, *build_msg;
@@ -432,11 +433,11 @@ static int send_notify_callback(sieve_interp_t *interp,
     build_notify_message(interp, notify->message, message_context, 
 			 &out_msg, &out_msglen);
 
-    build_msg = xmalloc(out_msglen + strlen(actions_string) + 30);
+    build_msg = xmalloc(out_msglen + /*strlen(actions_string)*/ + 30);
 
     strcpy(build_msg, out_msg);
-    strcat(build_msg, "\n\n");
-    strcat(build_msg, actions_string);
+    //strcat(build_msg, "\n\n");
+    //strcat(build_msg, actions_string);
 
     nc.message = build_msg;
 
