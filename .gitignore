@@ -22,6 +22,8 @@ configure
 cscope.out
 sieve/tests/
 perl/sieve/managesieve/
+debian/
+sieve/
 com_err/et/com_err.o
 com_err/et/compile_et
 com_err/et/error_message.o
