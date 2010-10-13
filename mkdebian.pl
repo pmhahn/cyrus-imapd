@@ -32,7 +32,7 @@ Section: mail
 Priority: extra
 Maintainer: Bron Gondwana <brong\@fastmail.fm>
 Build-Depends: libssl-dev, zlib1g-dev, comerr-dev, libsasl2-dev,
-	libdb4.6-dev, libzephyr-dev, libpcre3-dev, autoconf,
+	libdb4.8-dev, libzephyr-dev, libpcre3-dev, autoconf,
 	flex, bison, debhelper, libsnmp-dev
 
 Package: $basename
@@ -69,7 +69,7 @@ build:
 	aclocal -I cmulocal
 	autoheader
 	autoconf
-	./configure --with-auth=unix --without-krb --with-perl=/usr/bin/perl --enable-idled --with-idle=idled --with-extraident=git-$branch-$num --prefix=/$basedir -with-cyrus-prefix=/$basedir --with-com_err=/usr --with-zlib --without-snmp --enable-replication
+	./configure --with-auth=unix --without-krb --with-perl=/usr/bin/perl --enable-idled --with-idle=idled --with-extraident=git-$branch-$num --prefix=/$basedir -with-cyrus-prefix=/$basedir --with-com_err=/usr --with-zlib --without-snmp --enable-replication --with-bdb=db-4.8
 	make depend
 	make all CFLAGS="-g -fPIC -W -Wall -fstack-protector-all"
 	make -C sieve test
