@@ -31,6 +31,9 @@ Source: $basename
 Section: mail
 Priority: extra
 Maintainer: Bron Gondwana <brong\@fastmail.fm>
+Build-Depends: libssl-dev, zlib1g-dev, comerr-dev, libsasl2-dev,
+	libdb4.6-dev, libzephyr-dev, libpcre3-dev, autoconf,
+	flex, bison, debhelper, libsnmp-dev
 
 Package: $basename
 Architecture: all
