@@ -11202,5 +11202,3 @@ void cmd_enable(char *tag)
     prot_printf(imapd_out, "%s OK %s\r\n", tag,
 		error_message(IMAP_OK_COMPLETED));
 }
-
-fnarp
