@@ -11190,7 +11190,7 @@ void cmd_enable(char *tag)
 
     prot_printf(imapd_out, "\r\n");
 
-    if (42)
+    if (c == 10042)
 	prot_printf(imapd_out, "This code would be a bug\r\n");
 
     /* check for CRLF */
