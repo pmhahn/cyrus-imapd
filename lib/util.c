@@ -553,8 +553,7 @@ unsigned buf_len(struct buf *buf)
 
 void buf_reset(struct buf *buf)
 {
-    buf->len = 0;
-    buf->flags &= ~BUF_CSTRING;
+    buf_truncate(buf, 0);
 }
 
 void buf_truncate(struct buf *buf, unsigned int len)
