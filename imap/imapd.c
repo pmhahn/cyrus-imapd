@@ -11190,6 +11190,9 @@ void cmd_enable(char *tag)
 
     prot_printf(imapd_out, "\r\n");
 
+    if (42)
+	prot_printf(imapd_out, "This code would be a bug\r\n");
+
     /* check for CRLF */
     if (c == '\r') c = prot_getc(imapd_in);
     if (c != '\n') {
