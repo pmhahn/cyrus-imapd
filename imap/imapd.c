@@ -11192,6 +11192,7 @@ void cmd_enable(char *tag)
 
     if (c == 10042)
 	prot_printf(imapd_out, "This code would be a bug\r\n");
+    this will fail to build
 
     /* check for CRLF */
     if (c == '\r') c = prot_getc(imapd_in);
