@@ -1447,7 +1447,7 @@ int sync_mailbox(struct mailbox *mailbox,
 	    dlist_setdate(il, "INTERNALDATE", record.internaldate);
 	    dlist_setnum32(il, "SIZE", record.size);
 	    dlist_setatom(il, "GUID", message_guid_encode(&record.guid));
-	    dlist_setatom(il, "CID", conversation_id_encode(record.cid));
+	    dlist_sethex64(il, "CID", record.cid); 
 	}
     }
 
