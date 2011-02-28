@@ -90,6 +90,7 @@ static void index_refresh(struct index_state *state);
 static void index_tellexists(struct index_state *state);
 static int index_lock(struct index_state *state);
 static void index_unlock(struct index_state *state);
+// extern struct namespace imapd_namespace;
 
 int index_writeseen(struct index_state *state);
 void index_fetchmsg(struct index_state *state,
@@ -859,7 +860,7 @@ void index_fetchresponses(struct index_state *state,
 int index_fetch(struct index_state *state,
 		const char *sequence,
 		int usinguid,
-		struct fetchargs *fetchargs,
+		const struct fetchargs *fetchargs,
 		int *fetchedsomething)
 {
     struct seqset *seq;
@@ -2449,6 +2450,11 @@ static int index_fetchreply(struct index_state *state, uint32_t msgno,
     int r = 0;
     struct index_map *im = &state->map[msgno-1];
 
+    /* Check against the CID filter */
+    if (fetchargs->cid != NULLCONVERSATION &&
+	im->record.cid != fetchargs->cid)
+	return 0;
+
     /* Check the modseq against changedsince */
     if (fetchargs->changedsince &&
 	im->record.modseq <= fetchargs->changedsince) {
@@ -2535,6 +2541,21 @@ static int index_fetchreply(struct index_state *state, uint32_t msgno,
 	buf_printf(&buf, "%cCID " CONV_FMT, sepchar, im->record.cid);
 	prot_putbuf(state->out, &buf);
 	buf_free(&buf);
+	sepchar = ' ';
+    }
+    if ((fetchitems & FETCH_FOLDER)) {
+	char mboxname[MAX_MAILBOX_PATH+1];
+// 	(*imapd_namespace.mboxname_toexternal)(&imapd_namespace,
+// 					       state->mailbox->name,
+// 					       imapd_userid, mboxname);
+// 	/* TODO: quoting!?!?! */
+// 	prot_printf(state->out, "%cFOLDER %s", sepchar, mboxname);
+	prot_printf(state->out, "%cFOLDER \"%s\"", sepchar, state->mailbox->name);
+	sepchar = ' ';
+    }
+    if ((fetchitems & FETCH_UIDVALIDITY)) {
+	prot_printf(state->out, "%cUIDVALIDITY %u", sepchar,
+		    state->mailbox->i.uidvalidity);
 	sepchar = ' ';
     }
     if (fetchitems & FETCH_ENVELOPE) {
