@@ -4479,7 +4479,8 @@ static int parse_xconv_validities(const char *tag,
 {
     int c;
     struct buf name = BUF_INITIALIZER;
-    uint32_t uidv, hms;
+    uint32_t uidv;
+    modseq_t hms;
     struct statusdata *sd;
 
     /* parse the opening parenthesis of the tuple list */
@@ -4504,7 +4505,7 @@ static int parse_xconv_validities(const char *tag,
 	if (c != ' ')
 	    goto syntax_error;
 
-	c = getuint32(imapd_in, &hms);
+	c = getmodseq(imapd_in, &hms);
 	if (c != ')')
 	    goto syntax_error;
 
