@@ -59,6 +59,7 @@
 #include <assert.h>
 
 #include "crc32.h"
+#include "dlist.h"
 #include "exitcodes.h"
 #include "imap_err.h"
 #include "prot.h"
@@ -2611,3 +2612,44 @@ void message_parse_env_address(char *str, struct address *addr)
     addr->domain = parse_nstring(&str);
 }
 
+int message_has_attachment(struct buf *body)
+{
+    struct dlist *dl = NULL;
+    struct dlist *ditem = NULL;
+    int res = 0;
+    int r;
+    int count;
+
+    r = dlist_parsemap(&dl, 0, body->s, body->len);
+    if (r) return 0;
+
+    ditem = dl->head;
+
+    /* check for attachments */
+    if (dlist_isatomlist(ditem)) {
+	struct dlist *subitem;
+	for (subitem = ditem->head; subitem; subitem = subitem->next) {
+	    /* sub part */
+	    if (dlist_isatomlist(subitem)) {
+		struct dlist *typeitem = dlist_getchildn(subitem, 0);
+		/* sub item that's not 'text', definitely an attachment */
+		if (strcasecmp(dlist_cstring(typeitem), "text")) {
+		    res = 1;
+		    break;
+		}
+		count++;
+	    }
+	}
+	if (count > 2) res = 1;
+    }
+    else {
+	/* single part - if it's not text */
+	if (strcasecmp(dlist_cstring(ditem), "text")) {
+	    res = 1;
+	}
+    }
+
+    dlist_free(&dl);
+    
+    return res;
+}
