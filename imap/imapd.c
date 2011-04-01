@@ -4772,7 +4772,6 @@ static int do_xconvfetch(uint32_t uidvalidity,
     const char *inboxname;
     char *fname = NULL;
     struct index_state *index_state = NULL;
-    conversation_t *virtualconv = NULL;
     char extname[MAX_MAILBOX_NAME];
     struct dlist *dl;
     strarray_t *folder_list = strarray_new();
@@ -4788,8 +4787,6 @@ static int do_xconvfetch(uint32_t uidvalidity,
 
     r = conversations_open(&state, fname);
     if (r) goto out;
-
-    virtualconv = conversation_new();
 
     for (dl = fetchargs->cidlist->head; dl; dl = dl->next) {
         r = _conv_add_folder(&state, dlist_num(dl), folder_list,
