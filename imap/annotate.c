@@ -310,20 +310,23 @@ static int split_attribs(const char *data, int datalen __attribute__((unused)),
 
     /* xxx use datalen? */
     /* xxx sanity check the data? */
+    /*
+     * Sigh...this is dumb.  We take care to be machine independent by
+     * storing the length in network byte order...but the size of the
+     * length field depends on whether we're running on a 32b or 64b
+     * platform.
+     */
     memcpy(&tmp, data, sizeof(unsigned long));
     attrib->size = (size_t) ntohl(tmp);
     data += sizeof(unsigned long); /* skip to value */
 
     attrib->value = data;
-    data += strlen(data) + 1; /* skip to contenttype */
 
-    attrib->contenttype = data;
-    data += strlen(data) + 1; /* skip to modifiedsince */
-
-    memcpy(&tmp, data, sizeof(unsigned long));
-    attrib->modifiedsince = (size_t) ntohl(tmp);
-    data += sizeof(unsigned long); /* skip to optional attribs */
-
+    /*
+     * In records written by older versions of Cyrus, there will be
+     * binary encoded content-type and modifiedsince values after the
+     * data.  We don't care about those anymore, so we just ignore them.
+     */
     return 0;
 }
 
@@ -405,10 +408,7 @@ enum {
     ATTRIB_VALUE_PRIV =			(1<<1),
     ATTRIB_SIZE_SHARED =		(1<<2),
     ATTRIB_SIZE_PRIV =			(1<<3),
-    ATTRIB_MODIFIEDSINCE_SHARED =	(1<<4),
-    ATTRIB_MODIFIEDSINCE_PRIV =		(1<<5),
-    ATTRIB_CONTENTTYPE_SHARED = 	(1<<6),
-    ATTRIB_CONTENTTYPE_PRIV = 		(1<<7)
+    ATTRIB_DEPRECATED =			(1<<4)
 };
 
 typedef enum {
@@ -589,25 +589,11 @@ static void output_entryatt(const char *mboxname, const char *entry,
 	    appendattvalue(&attvalues, "value.shared", attrib->value);
 	}
 
-	if ((fdata->attribs & ATTRIB_CONTENTTYPE_SHARED)
-	    && attrib->value && attrib->contenttype) {
-	    appendattvalue(&attvalues, "content-type.shared",
-			   attrib->contenttype);
-	}
-
 	/* Base the return of the size attribute on whether or not there is
 	 * an attribute, not whether size is nonzero. */
 	if ((fdata->attribs & ATTRIB_SIZE_SHARED)) {
 	    snprintf(buf, sizeof(buf), SIZE_T_FMT, attrib->size);
 	    appendattvalue(&attvalues, "size.shared", buf);
-	}
-
-	/* For this one we need both a value for the entry *and* a nonzero
-	 * modifiedsince time */
-	if ((fdata->attribs & ATTRIB_MODIFIEDSINCE_SHARED)
-	    && attrib->modifiedsince) {
-	    snprintf(buf, sizeof(buf), "%ld", attrib->modifiedsince);
-	    appendattvalue(&attvalues, "modifiedsince.shared", buf);
 	}
     }
     else { /* private annotation */
@@ -615,25 +601,11 @@ static void output_entryatt(const char *mboxname, const char *entry,
 	    appendattvalue(&attvalues, "value.priv", attrib->value);
 	}
 
-	if ((fdata->attribs & ATTRIB_CONTENTTYPE_PRIV)
-	    && attrib->contenttype) {
-	    appendattvalue(&attvalues, "content-type.priv",
-			   attrib->contenttype);
-	}
-
 	/* Base the return of the size attribute on whether or not there is
 	 * an attribute, not whether size is nonzero. */
 	if ((fdata->attribs & ATTRIB_SIZE_PRIV)) {
 	    snprintf(buf, sizeof(buf), SIZE_T_FMT, attrib->size);
 	    appendattvalue(&attvalues, "size.priv", buf);
-	}
-
-	/* For this one we need both a value for the entry *and* a nonzero
-	 * modifiedsince time */
-	if ((fdata->attribs & ATTRIB_MODIFIEDSINCE_PRIV)
-	    && attrib->modifiedsince) {
-	    snprintf(buf, sizeof(buf), "%ld", attrib->modifiedsince);
-	    appendattvalue(&attvalues, "modifiedsince.priv", buf);
 	}
     }
 }
@@ -665,7 +637,6 @@ static void annotation_get_fromfile(const char *int_mboxname __attribute__((unus
     const char *filename = (const char *) rock;
     char path[MAX_MAILBOX_PATH+1], buf[MAX_MAILBOX_PATH+1], *p;
     FILE *f;
-    struct stat statbuf;
     struct annotation_data attrib;
 
     snprintf(path, sizeof(path), "%s/msg/%s", config_dir, filename);
@@ -677,10 +648,6 @@ static void annotation_get_fromfile(const char *int_mboxname __attribute__((unus
 
 	attrib.value = buf;
 	attrib.size = strlen(buf);
-	attrib.contenttype = "text/plain";
-	if (!fstat(fileno(f), &statbuf))
-	    attrib.modifiedsince = statbuf.st_mtime;
-
 	output_entryatt(ext_mboxname, entry, "", &attrib, fdata);
     }
     if (f) fclose(f);
@@ -705,7 +672,6 @@ static void annotation_get_freespace(const char *int_mboxname __attribute__((unu
 
     attrib.value = value;
     attrib.size = strlen(value);
-    attrib.contenttype = "text/plain";
 
     output_entryatt(ext_mboxname, entry, "", &attrib, fdata);
 }
@@ -734,7 +700,6 @@ static void annotation_get_server(const char *int_mboxname,
     attrib.value = mbentry->server;
     if (mbentry->server) {
 	attrib.size = strlen(mbentry->server);
-	attrib.contenttype = "text/plain";
     }
 
     output_entryatt(ext_mboxname, entry, "", &attrib, fdata);
@@ -765,7 +730,6 @@ static void annotation_get_partition(const char *int_mboxname,
     attrib.value = mbentry->partition;
     if (mbentry->partition) {
 	attrib.size = strlen(mbentry->partition);
-	attrib.contenttype = "text/plain";
     }
 
     output_entryatt(ext_mboxname, entry, "", &attrib, fdata);
@@ -805,7 +769,6 @@ static void annotation_get_size(const char *int_mboxname,
 
     attrib.value = value;
     attrib.size = strlen(value);
-    attrib.contenttype = "text/plain";
 
     output_entryatt(ext_mboxname, entry, "", &attrib, fdata);
 }
@@ -843,7 +806,6 @@ static void annotation_get_lastupdate(const char *int_mboxname,
 
     attrib.value = valuebuf;
     attrib.size = strlen(valuebuf);
-    attrib.contenttype = "text/plain";
 
     output_entryatt(ext_mboxname, entry, "", &attrib, fdata);
 }
@@ -885,7 +847,6 @@ static void annotation_get_lastpop(const char *int_mboxname,
 
     attrib.value = value;
     attrib.size = strlen(value);
-    attrib.contenttype = "text/plain";
 
     output_entryatt(ext_mboxname, entry, "", &attrib, fdata);
 }
@@ -937,7 +898,6 @@ static void annotation_get_mailboxopt(const char *int_mboxname,
 
     attrib.value = value;
     attrib.size = strlen(value);
-    attrib.contenttype = "text/plain";
 
     output_entryatt(ext_mboxname, entry, "", &attrib, fdata);
 }
@@ -979,7 +939,6 @@ static void annotation_get_pop3showafter(const char *int_mboxname,
 	time_to_rfc3501(date, value, sizeof(value));
 	attrib.value = value;
 	attrib.size = strlen(value);
-	attrib.contenttype = "text/plain";
     }
 
     output_entryatt(ext_mboxname, entry, "", &attrib, fdata);
@@ -1012,7 +971,6 @@ static void annotation_get_specialuse(const char *int_mboxname,
 
     attrib.value = mbentry->specialuse;
     attrib.size = strlen(mbentry->specialuse);
-    attrib.contenttype = "text/plain";
 
     output_entryatt(ext_mboxname, entry, "", &attrib, fdata);
 }
@@ -1137,7 +1095,7 @@ struct annotate_attrib
     int entry;
 };
 
-const struct annotate_attrib annotation_attributes[] = 
+const struct annotate_attrib annotation_attributes[] =
 {
     { "value", ATTRIB_VALUE_SHARED | ATTRIB_VALUE_PRIV },
     { "value.shared", ATTRIB_VALUE_SHARED },
@@ -1145,12 +1103,20 @@ const struct annotate_attrib annotation_attributes[] =
     { "size", ATTRIB_SIZE_SHARED | ATTRIB_SIZE_PRIV },
     { "size.shared", ATTRIB_SIZE_SHARED },
     { "size.priv", ATTRIB_SIZE_PRIV },
-    { "modifiedsince", ATTRIB_MODIFIEDSINCE_SHARED | ATTRIB_MODIFIEDSINCE_PRIV },
-    { "modifiedsince.shared", ATTRIB_MODIFIEDSINCE_SHARED },
-    { "modifiedsince.priv", ATTRIB_MODIFIEDSINCE_PRIV },
-    { "content-type", ATTRIB_CONTENTTYPE_SHARED | ATTRIB_CONTENTTYPE_PRIV },
-    { "content-type.shared", ATTRIB_CONTENTTYPE_SHARED },
-    { "content-type.priv", ATTRIB_CONTENTTYPE_PRIV },
+    /*
+     * The following attribute names appeared in the first drafts of the
+     * ANNOTATEMORE extension but did not make it to the final RFC, or
+     * even to draft 11 which we also officially support.  They might
+     * appear in old annotation definition files, so we map them to
+     * ATTRIB_DEPRECATED and issue a warning rather then remove them
+     * entirely.
+     */
+    { "modifiedsince", ATTRIB_DEPRECATED },
+    { "modifiedsince.shared", ATTRIB_DEPRECATED },
+    { "modifiedsince.priv", ATTRIB_DEPRECATED },
+    { "content-type", ATTRIB_DEPRECATED },
+    { "content-type.shared", ATTRIB_DEPRECATED },
+    { "content-type.priv", ATTRIB_DEPRECATED },
     { NULL, 0 }
 };
 
@@ -1264,13 +1230,24 @@ int annotatemore_fetch(char *mailbox,
     while (a) {
 	int attribcount;
 
+	/*
+	 * TODO: this is bogus.  The * and % wildcard characters applied
+	 * to attributes in the early drafts of the ANNOTATEMORE
+	 * extension, but not in later drafts where those characters are
+	 * actually illegal in attribute names.
+	 */
 	g = glob_init(a->s, GLOB_HIERARCHY);
 	
 	for (attribcount = 0;
 	     annotation_attributes[attribcount].name;
 	     attribcount++) {
 	    if (GLOB_TEST(g, annotation_attributes[attribcount].name) != -1) {
-		fdata.attribs |= annotation_attributes[attribcount].entry;
+		if (annotation_attributes[attribcount].entry & ATTRIB_DEPRECATED)
+		    syslog(LOG_WARNING, "annotatemore_fetch: client used "
+				        "deprecated attribute \"%s\", ignoring",
+				        annotation_attributes[attribcount].name);
+		else
+		    fdata.attribs |= annotation_attributes[attribcount].entry;
 	    }
 	}
 	
@@ -1472,6 +1449,7 @@ static int write_entry(const char *mboxname, const char *entry,
 	char data[MAX_MAILBOX_PATH+1];
 	int datalen = 0;
 	unsigned long l;
+	static const char contenttype[] = "text/plain"; /* fake */
 
 	l = htonl(strlen(attrib->value));
 	memcpy(data+datalen, &l, sizeof(l));
@@ -1480,13 +1458,16 @@ static int write_entry(const char *mboxname, const char *entry,
 	strlcpy(data+datalen, attrib->value, sizeof(data)-datalen);
 	datalen += strlen(attrib->value) + 1;
 
-	if (!attrib->contenttype || !strcmp(attrib->contenttype, "NIL")) {
-	    attrib->contenttype = "text/plain";
-	}
-	strlcpy(data+datalen, attrib->contenttype, sizeof(data)-datalen);
-	datalen += strlen(attrib->contenttype) + 1;
+	/*
+	 * Older versions of Cyrus expected content-type and
+	 * modifiedsince fields after the value.  We don't support those
+	 * but we write out default values just in case the database
+	 * needs to be read by older versions of Cyrus
+	 */
+	strlcpy(data+datalen, contenttype, sizeof(data)-datalen);
+	datalen += strlen(contenttype) + 1;
 
-	l = htonl(attrib->modifiedsince);
+	l = 0;	/* fake modifiedsince */
 	memcpy(data+datalen, &l, sizeof(l));
 	datalen += sizeof(l);
 
@@ -1501,15 +1482,13 @@ static int write_entry(const char *mboxname, const char *entry,
 
 int annotatemore_write_entry(const char *mboxname, const char *entry,
 			     const char *userid,
-			     const char *value, const char *contenttype,
-			     size_t size, time_t modifiedsince,
-			     struct txn **tid) 
+			     const char *value,
+			     size_t size,
+			     struct txn **tid)
 {
     struct annotation_data theentry;
-    
+
     theentry.size = size;
-    theentry.modifiedsince = modifiedsince ? modifiedsince : time(NULL);
-    theentry.contenttype = contenttype ? contenttype : "text/plain";
     theentry.value = value ? value : "NIL";
 
     return write_entry(mboxname, entry, userid, &theentry, tid);
@@ -1533,7 +1512,6 @@ struct storedata {
 };
 
 enum {
-    ATTRIB_TYPE_CONTENTTYPE,
     ATTRIB_TYPE_STRING,
     ATTRIB_TYPE_BOOLEAN,
     ATTRIB_TYPE_UINT,
@@ -1570,10 +1548,6 @@ static const char *annotate_canon_value(const char *value, int type)
     if (!strcasecmp(value, "NIL")) return "NIL";
 
     switch (type) {
-    case ATTRIB_TYPE_CONTENTTYPE:
-	/* XXX how do we check this? */
-	break;
-
     case ATTRIB_TYPE_STRING:
 	/* free form */
 	break;
@@ -1752,7 +1726,7 @@ static int annotation_set_todb(const char *int_mboxname,
 {
     int r = 0;
 
-    if (entry->shared.value || entry->shared.contenttype) {
+    if (entry->shared.value) {
 	/* Check ACL
 	 *
 	 * Must be an admin to set shared server annotations and
@@ -1784,7 +1758,7 @@ static int annotation_set_todb(const char *int_mboxname,
 			    &(entry->shared), &(sdata->tid));
 	}
     }
-    if (entry->priv.value || entry->priv.contenttype) {
+    if (entry->priv.value) {
 	/* Check ACL
 	 *
 	 * XXX We don't actually need to check anything here,
@@ -1951,23 +1925,22 @@ static int annotation_set_specialuse(const char *int_mboxname,
 const struct annotate_st_entry server_entries[] =
 {
     { "/comment", ATTRIB_TYPE_STRING, PROXY_AND_BACKEND,
-      ATTRIB_VALUE_SHARED | ATTRIB_VALUE_PRIV
-      | ATTRIB_CONTENTTYPE_SHARED | ATTRIB_CONTENTTYPE_PRIV,
+      ATTRIB_VALUE_SHARED | ATTRIB_VALUE_PRIV,
       ACL_ADMIN, annotation_set_todb, NULL },
     { "/motd", ATTRIB_TYPE_STRING, PROXY_AND_BACKEND,
-      ATTRIB_VALUE_SHARED | ATTRIB_CONTENTTYPE_SHARED,
+      ATTRIB_VALUE_SHARED,
       ACL_ADMIN, annotation_set_tofile, (void *)"motd" },
     { "/admin", ATTRIB_TYPE_STRING, PROXY_AND_BACKEND,
-      ATTRIB_VALUE_SHARED | ATTRIB_CONTENTTYPE_SHARED,
+      ATTRIB_VALUE_SHARED,
       ACL_ADMIN, annotation_set_todb, NULL },
     { "/vendor/cmu/cyrus-imapd/shutdown", ATTRIB_TYPE_STRING, PROXY_AND_BACKEND,
-      ATTRIB_VALUE_SHARED | ATTRIB_CONTENTTYPE_SHARED,
+      ATTRIB_VALUE_SHARED,
       ACL_ADMIN, annotation_set_tofile, (void *)"shutdown" },
     { "/vendor/cmu/cyrus-imapd/squat", ATTRIB_TYPE_BOOLEAN, PROXY_AND_BACKEND,
-      ATTRIB_VALUE_SHARED | ATTRIB_CONTENTTYPE_SHARED,
+      ATTRIB_VALUE_SHARED,
       ACL_ADMIN, annotation_set_todb, NULL },
     { "/vendor/cmu/cyrus-imapd/expire", ATTRIB_TYPE_UINT, PROXY_AND_BACKEND,
-      ATTRIB_VALUE_SHARED | ATTRIB_CONTENTTYPE_SHARED,
+      ATTRIB_VALUE_SHARED,
       ACL_ADMIN, annotation_set_todb, NULL },
     { NULL, 0, ANNOTATION_PROXY_T_INVALID, 0, 0, NULL, NULL }
 };
@@ -1975,51 +1948,46 @@ const struct annotate_st_entry server_entries[] =
 const struct annotate_st_entry mailbox_rw_entries[] =
 {
     { "/comment", ATTRIB_TYPE_STRING, BACKEND_ONLY,
-      ATTRIB_VALUE_SHARED | ATTRIB_VALUE_PRIV
-      | ATTRIB_CONTENTTYPE_SHARED | ATTRIB_CONTENTTYPE_PRIV,
+      ATTRIB_VALUE_SHARED | ATTRIB_VALUE_PRIV,
       0, annotation_set_todb, NULL },
     { "/sort", ATTRIB_TYPE_STRING, BACKEND_ONLY,
-      ATTRIB_VALUE_SHARED | ATTRIB_VALUE_PRIV
-      | ATTRIB_CONTENTTYPE_SHARED | ATTRIB_CONTENTTYPE_PRIV,
+      ATTRIB_VALUE_SHARED | ATTRIB_VALUE_PRIV,
       0, annotation_set_todb, NULL },
     { "/thread", ATTRIB_TYPE_STRING, BACKEND_ONLY,
-      ATTRIB_VALUE_SHARED | ATTRIB_VALUE_PRIV
-      | ATTRIB_CONTENTTYPE_SHARED | ATTRIB_CONTENTTYPE_PRIV,
+      ATTRIB_VALUE_SHARED | ATTRIB_VALUE_PRIV,
       0, annotation_set_todb, NULL },
     { "/check", ATTRIB_TYPE_BOOLEAN, BACKEND_ONLY,
-      ATTRIB_VALUE_SHARED | ATTRIB_VALUE_PRIV
-      | ATTRIB_CONTENTTYPE_SHARED | ATTRIB_CONTENTTYPE_PRIV,
+      ATTRIB_VALUE_SHARED | ATTRIB_VALUE_PRIV,
       0, annotation_set_todb, NULL },
     { "/checkperiod", ATTRIB_TYPE_UINT, BACKEND_ONLY,
-      ATTRIB_VALUE_SHARED | ATTRIB_VALUE_PRIV
-      | ATTRIB_CONTENTTYPE_SHARED | ATTRIB_CONTENTTYPE_PRIV,
+      ATTRIB_VALUE_SHARED | ATTRIB_VALUE_PRIV,
       0, annotation_set_todb, NULL },
     { "/specialuse", ATTRIB_TYPE_STRING, BACKEND_ONLY,
-      ATTRIB_VALUE_SHARED | ATTRIB_CONTENTTYPE_SHARED,
+      ATTRIB_VALUE_SHARED,
       0, annotation_set_specialuse, NULL },
     { "/vendor/cmu/cyrus-imapd/squat", ATTRIB_TYPE_BOOLEAN, BACKEND_ONLY,
-      ATTRIB_VALUE_SHARED | ATTRIB_CONTENTTYPE_SHARED,
+      ATTRIB_VALUE_SHARED,
       ACL_ADMIN, annotation_set_todb, NULL },
     { "/vendor/cmu/cyrus-imapd/expire", ATTRIB_TYPE_UINT, BACKEND_ONLY,
-      ATTRIB_VALUE_SHARED | ATTRIB_CONTENTTYPE_SHARED,
+      ATTRIB_VALUE_SHARED,
       ACL_ADMIN, annotation_set_todb, NULL },
     { "/vendor/cmu/cyrus-imapd/news2mail", ATTRIB_TYPE_STRING, BACKEND_ONLY,
-      ATTRIB_VALUE_SHARED | ATTRIB_CONTENTTYPE_SHARED,
+      ATTRIB_VALUE_SHARED,
       ACL_ADMIN, annotation_set_todb, NULL },
     { "/vendor/cmu/cyrus-imapd/sieve", ATTRIB_TYPE_STRING, BACKEND_ONLY,
-      ATTRIB_VALUE_SHARED | ATTRIB_CONTENTTYPE_SHARED,
+      ATTRIB_VALUE_SHARED,
       ACL_ADMIN, annotation_set_todb, NULL },
     { "/vendor/cmu/cyrus-imapd/pop3newuidl", ATTRIB_TYPE_BOOLEAN, BACKEND_ONLY,
-      ATTRIB_VALUE_SHARED | ATTRIB_CONTENTTYPE_SHARED,
+      ATTRIB_VALUE_SHARED,
       ACL_ADMIN, annotation_set_mailboxopt, NULL },
     { "/vendor/cmu/cyrus-imapd/sharedseen", ATTRIB_TYPE_BOOLEAN, BACKEND_ONLY,
-      ATTRIB_VALUE_SHARED | ATTRIB_CONTENTTYPE_SHARED,
+      ATTRIB_VALUE_SHARED,
       ACL_ADMIN, annotation_set_mailboxopt, NULL },
     { "/vendor/cmu/cyrus-imapd/duplicatedeliver", ATTRIB_TYPE_BOOLEAN, BACKEND_ONLY,
-      ATTRIB_VALUE_SHARED | ATTRIB_CONTENTTYPE_SHARED,
+      ATTRIB_VALUE_SHARED,
       ACL_ADMIN, annotation_set_mailboxopt, NULL },
     { "/vendor/cmu/cyrus-imapd/pop3showafter", ATTRIB_TYPE_STRING, BACKEND_ONLY,
-      ATTRIB_VALUE_SHARED | ATTRIB_CONTENTTYPE_SHARED,
+      ATTRIB_VALUE_SHARED,
       ACL_ADMIN, annotation_set_pop3showafter, NULL },
     { NULL, 0, ANNOTATION_PROXY_T_INVALID, 0, 0, NULL, NULL }
 };
@@ -2039,7 +2007,6 @@ int annotatemore_store(const char *mboxname,
     struct attvaluelist *av;
     struct storedata sdata;
     const struct annotate_st_entry_list *entries, *currententry;
-    time_t now = time(0);
 
     memset(&sdata, 0, sizeof(struct storedata));
     sdata.namespace = namespace;
@@ -2081,8 +2048,6 @@ int annotatemore_store(const char *mboxname,
 	    nentry = xzmalloc(sizeof(struct annotate_st_entry_list));
 	    nentry->next = sdata.entry_list;
 	    nentry->entry = currententry->entry;
-	    nentry->shared.modifiedsince = now;
-	    nentry->priv.modifiedsince = now;
 	    sdata.entry_list = nentry;
 	}
 
@@ -2104,18 +2069,11 @@ int annotatemore_store(const char *mboxname,
 		}
 		if (nentry) nentry->shared.value = value;
 	    }
-	    else if (!strcmp(av->attrib, "content-type.shared")) {
-		if (!(attribs & ATTRIB_CONTENTTYPE_SHARED)) {
-		    r = IMAP_PERMISSION_DENIED;
-		    goto cleanup;
-		}
-		value = annotate_canon_value(av->value,
-					     ATTRIB_TYPE_CONTENTTYPE);
-		if (!value) {
-		    r = IMAP_ANNOTATION_BADVALUE;
-		    goto cleanup;
-		}
-		if (nentry) nentry->shared.contenttype = value;
+	    else if (!strcmp(av->attrib, "content-type.shared") ||
+	             !strcmp(av->attrib, "content-type.priv")) {
+		syslog(LOG_WARNING, "annotatemore_store: client used "
+				    "deprecated attribute \"%s\", ignoring",
+				    av->attrib);
 	    }
 	    else if (!strcmp(av->attrib, "value.priv")) {
 		if (!(attribs & ATTRIB_VALUE_PRIV)) {
@@ -2129,19 +2087,6 @@ int annotatemore_store(const char *mboxname,
 		    goto cleanup;
 		}
 		if (nentry) nentry->priv.value = value;
-	    }
-	    else if (!strcmp(av->attrib, "content-type.priv")) {
-		if (!(attribs & ATTRIB_CONTENTTYPE_PRIV)) {
-		    r = IMAP_PERMISSION_DENIED;
-		    goto cleanup;
-		}
-		value = annotate_canon_value(av->value,
-					     ATTRIB_TYPE_CONTENTTYPE);
-		if (!value) {
-		    r = IMAP_ANNOTATION_BADVALUE;
-		    goto cleanup;
-		}
-		if (nentry) nentry->priv.contenttype = value;
 	    }
 	    else {
 		r = IMAP_PERMISSION_DENIED;
@@ -2332,7 +2277,13 @@ const struct annotate_attrib annotation_proxy_type_names[] =
 
 const struct annotate_attrib attribute_type_names[] = 
 {
-    { "content-type", ATTRIB_TYPE_CONTENTTYPE },
+    /*
+     * The "content-type" type was only used for protocol features which
+     * were dropped before the RFCs became final.  We accept it in
+     * annotation definition files only for backwards compatibility with
+     * earlier Cyrus versions.
+     */
+    { "content-type", ATTRIB_TYPE_STRING },
     { "string", ATTRIB_TYPE_STRING },
     { "boolean", ATTRIB_TYPE_BOOLEAN },
     { "uint", ATTRIB_TYPE_UINT },
@@ -2419,6 +2370,7 @@ static void init_annotation_definitions(void)
     struct annotate_st_entry *ae;
     int i;
     FILE* f;
+    int deprecated_warnings = 0;
 
     /* NOTE: we assume # static entries > 0 */
     server_entries_list = xmalloc(sizeof(struct annotate_st_entry_list));
@@ -2510,6 +2462,14 @@ static void init_annotation_definitions(void)
 	ae->attribs = parse_table_lookup_bitmask(annotation_attributes,
 						 &p,
 						 "annotation attributes");
+	if (ae->attribs & ATTRIB_DEPRECATED) {
+	    if (!deprecated_warnings++)
+		syslog(LOG_WARNING, "annotation definitions file contains "
+				    "deprecated attribute names such as "
+				    "content-type or modified-since, ignoring");
+	    ae->attribs &= ~ATTRIB_DEPRECATED;
+	}
+
 
 	p = consume_comma(p);
 	p2 = p;
