@@ -404,10 +404,10 @@ void cmd_compress(char *tag, char *alg);
 void cmd_netscrape(char* tag);
 #endif
 
-void cmd_getannotation(char* tag, char *mboxpat);
-void cmd_getmetadata(char* tag, char *mboxpat);
-void cmd_setannotation(char* tag, char *mboxpat);
-void cmd_setmetadata(char* tag, char *mboxpat);
+static void cmd_getannotation(const char* tag, char *mboxpat);
+static void cmd_getmetadata(const char* tag, char *mboxpat);
+static void cmd_setannotation(const char* tag, char *mboxpat);
+static void cmd_setmetadata(const char* tag, char *mboxpat);
 
 void cmd_enable(char* tag);
 
@@ -8385,8 +8385,8 @@ void annotate_response(struct entryattlist *l)
  * Perform a GETANNOTATION command
  *
  * The command has been parsed up to the entries
- */    
-void cmd_getannotation(char *tag, char *mboxpat)
+ */
+static void cmd_getannotation(const char *tag, char *mboxpat)
 {
     int c, r = 0;
     struct strlist *entries = NULL, *attribs = NULL;
@@ -8431,8 +8431,8 @@ void cmd_getannotation(char *tag, char *mboxpat)
  * Perform a GETMETADATA command
  *
  * The command has been parsed up to the entries
- */    
-void cmd_getmetadata(char *tag, char *mboxpat)
+ */
+static void cmd_getmetadata(const char *tag, char *mboxpat)
 {
     int c, r = 0;
     struct strlist *entries = NULL, *attribs = NULL;
@@ -8564,8 +8564,8 @@ void cmd_getmetadata(char *tag, char *mboxpat)
  * Perform a SETANNOTATION command
  *
  * The command has been parsed up to the entry-att list
- */    
-void cmd_setannotation(char *tag, char *mboxpat)
+ */
+static void cmd_setannotation(const char *tag, char *mboxpat)
 {
     int c, r = 0;
     struct entryattlist *entryatts = NULL;
@@ -8608,8 +8608,8 @@ void cmd_setannotation(char *tag, char *mboxpat)
  * Perform a SETMETADATA command
  *
  * The command has been parsed up to the entry-att list
- */    
-void cmd_setmetadata(char *tag, char *mboxpat)
+ */
+static void cmd_setmetadata(const char *tag, char *mboxpat)
 {
     int c, r = 0;
     struct entryattlist *entryatts = NULL;
