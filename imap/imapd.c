@@ -8379,6 +8379,7 @@ static void cmd_getannotation(const char *tag, char *mboxpat)
     int c, r = 0;
     strarray_t entries = STRARRAY_INITIALIZER;
     strarray_t attribs = STRARRAY_INITIALIZER;
+    annotate_scope_t scope;
 
     c = parse_annotate_fetch_data(tag, &entries, &attribs);
     if (c == EOF) {
@@ -8396,7 +8397,11 @@ static void cmd_getannotation(const char *tag, char *mboxpat)
 	goto freeargs;
     }
 
-    r = annotatemore_fetch(mboxpat, &entries, &attribs, &imapd_namespace,
+    annotate_scope_init_server(&scope);
+    if (mboxpat[0])
+	annotate_scope_init_mailbox(&scope, mboxpat);
+
+    r = annotatemore_fetch(&scope, &entries, &attribs, &imapd_namespace,
 			   imapd_userisadmin || imapd_userisproxyadmin,
 			   imapd_userid, imapd_authstate, imapd_out, 0, 0);
 
@@ -8436,6 +8441,7 @@ static void cmd_getmetadata(const char *tag, char *mboxpat)
     int have_shared = 0;
     int have_private = 0;
     int i;
+    annotate_scope_t scope;
 
     c = parse_metadata_fetch_data(tag, &entries, &attribs);
     if (c == EOF) {
@@ -8526,8 +8532,12 @@ static void cmd_getmetadata(const char *tag, char *mboxpat)
     if (have_private) strarray_append(&newa, "value.priv");
     if (have_shared) strarray_append(&newa, "value.shared");
 
+    annotate_scope_init_server(&scope);
+    if (mboxpat[0])
+	annotate_scope_init_mailbox(&scope, mboxpat);
+
     basesize = maxsize;
-    r = annotatemore_fetch(mboxpat, &newe, &newa, &imapd_namespace,
+    r = annotatemore_fetch(&scope, &newe, &newa, &imapd_namespace,
 			   imapd_userisadmin || imapd_userisproxyadmin,
 			   imapd_userid, imapd_authstate, imapd_out, 1,
 			   sizeptr);
@@ -8562,6 +8572,7 @@ static void cmd_setannotation(const char *tag, char *mboxpat)
 {
     int c, r = 0;
     struct entryattlist *entryatts = NULL;
+    annotate_scope_t scope;
 
     c = parse_annotate_store_data(tag, &entryatts);
     if (c == EOF) {
@@ -8579,7 +8590,11 @@ static void cmd_setannotation(const char *tag, char *mboxpat)
 	goto freeargs;
     }
 
-    r = annotatemore_store(mboxpat,
+    annotate_scope_init_server(&scope);
+    if (mboxpat[0])
+	annotate_scope_init_mailbox(&scope, mboxpat);
+
+    r = annotatemore_store(&scope,
 			   entryatts, &imapd_namespace, imapd_userisadmin,
 			   imapd_userid, imapd_authstate);
 
@@ -8606,6 +8621,7 @@ static void cmd_setmetadata(const char *tag, char *mboxpat)
 {
     int c, r = 0;
     struct entryattlist *entryatts = NULL;
+    annotate_scope_t scope;
 
     c = parse_metadata_store_data(tag, &entryatts);
     if (c == EOF) {
@@ -8623,7 +8639,11 @@ static void cmd_setmetadata(const char *tag, char *mboxpat)
 	goto freeargs;
     }
 
-    r = annotatemore_store(mboxpat,
+    annotate_scope_init_server(&scope);
+    if (mboxpat[0])
+	annotate_scope_init_mailbox(&scope, mboxpat);
+
+    r = annotatemore_store(&scope,
 			   entryatts, &imapd_namespace, imapd_userisadmin,
 			   imapd_userid, imapd_authstate);
 
