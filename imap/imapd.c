@@ -8146,7 +8146,8 @@ static int parse_metadata_fetch_data(const char *tag,
 static int parse_annotate_store_data(const char *tag,
 				     struct entryattlist **entryatts)
 {
-    int c, islist = 0;
+    int c, c2, islist = 0;
+    const char *v;
     static struct buf entry, attrib, value;
     struct attvaluelist *attvalues = NULL;
 
@@ -8194,15 +8195,27 @@ static int parse_annotate_store_data(const char *tag,
 	    }
 
 	    /* get value */
-	    if (c != ' ' ||
-		(c = getnstring(imapd_in, imapd_out, &value)) == EOF) {
+	    if (c != ' ') {
+		prot_printf(imapd_out,
+			    "%s BAD Missing annotation value\r\n", tag);
+		goto baddata;
+	    }
+	    c2 = prot_getc(imapd_in);
+	    prot_ungetc(c2, imapd_in);
+	    c = getnstring(imapd_in, imapd_out, &value);
+	    if (c == EOF) {
 		prot_printf(imapd_out,
 			    "%s BAD Missing annotation value\r\n", tag);
 		goto baddata;
 	    }
 
+	    v = value.s;
+	    /* detect an actual NIL, rather than e.g. a quoted "NIL" */
+	    if (c2 == 'N' && value.len == 3 && !strcmp(v, "NIL"))
+		v = NULL;
+
 	    /* add the attrib-value pair to the list */
-	    appendattvalue(&attvalues, attrib.s, value.s);
+	    appendattvalue(&attvalues, attrib.s, v);
 
 	} while (c == ' ');
 
@@ -8250,7 +8263,8 @@ static int parse_annotate_store_data(const char *tag,
 static int parse_metadata_store_data(const char *tag,
 				     struct entryattlist **entryatts)
 {
-    int c;
+    int c, c2;
+    const char *v;
     const char *name;
     const char *att;
     static struct buf entry, value;
@@ -8277,13 +8291,20 @@ static int parse_metadata_store_data(const char *tag,
 	}
 
 	/* get value */
+	c2 = prot_getc(imapd_in);
+	prot_ungetc(c2, imapd_in);
 	c = getnstring(imapd_in, imapd_out, &value);
 	if (c == EOF) {
 	    prot_printf(imapd_out,
 			"%s BAD Missing metadata value\r\n", tag);
 	    goto baddata;
 	}
+	v = value.s;
+	/* detect an actual NIL, rather than e.g. a quoted "NIL" */
+	if (c2 == 'N' && value.len == 3 && !strcmp(v, "NIL"))
+	    v = NULL;
 
+	/* TODO: this is bogus, we should check for /private/ */
 	if (!strncmp(entry.s, "/private", 8)) {
 	    att = "value.priv";
 	    name = entry.s + 8;
@@ -8303,12 +8324,12 @@ static int parse_metadata_store_data(const char *tag,
 	for (entryp = *entryatts; entryp; entryp = entryp->next) {
 	    if (strcmp(entryp->entry, name)) continue;
 	    /* it's a match, have to append! */
-	    appendattvalue(&entryp->attvalues, att, value.s);
+	    appendattvalue(&entryp->attvalues, att, v);
 	    need_add = 0;
 	    break;
 	}
 	if (need_add) {
-	    appendattvalue(&attvalues, att, value.s);
+	    appendattvalue(&attvalues, att, v);
 	    appendentryatt(entryatts, name, attvalues);
 	    attvalues = NULL;
 	}
