@@ -1456,8 +1456,9 @@ static int do_mailbox(struct dlist *kin)
     if (mailbox->i.uidvalidity < uidvalidity) {
 	syslog(LOG_ERR, "%s uidvalidity higher on master, updating %u => %u",
 	       mailbox->name, mailbox->i.uidvalidity, uidvalidity);
-	mailbox->i.uidvalidity = mboxname_setuidvalidity(mailbox->name,
-							 uidvalidity);
+	/* make sure nothing new gets created with a lower value */
+	mboxname_setuidvalidity(mailbox->name, uidvalidity);
+	mailbox->i.uidvalidity = uidvalidity;
     }
 
     /* TODO: we might be able to do this in a single pass above.
