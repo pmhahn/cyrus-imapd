@@ -1614,7 +1614,7 @@ int annotatemore_fetch(const annotate_scope_t *scope,
 	GLOB_SET_SEPARATOR(g, '/');
 
 	for (j = 0 ; j < non_db_entries->count ; j++) {
-	    const annotate_entrydesc_t *desc = non_db_entries->data[i];
+	    const annotate_entrydesc_t *desc = non_db_entries->data[j];
 
 	    if (!desc->get)
 		continue;
@@ -1625,10 +1625,11 @@ int annotatemore_fetch(const annotate_scope_t *scope,
 		if ((desc->proxytype != PROXY_ONLY)
 		    || proxy_fetch_func) {
 		    struct annotate_f_entry_list *nentry =
-			xmalloc(sizeof(struct annotate_f_entry_list));
+			xzmalloc(sizeof(struct annotate_f_entry_list));
 
 		    nentry->next = fdata.entry_list;
 		    nentry->entry = desc;
+		    nentry->entrypat = s;
 		    fdata.entry_list = nentry;
 		}
 	    }
@@ -1654,7 +1655,7 @@ int annotatemore_fetch(const annotate_scope_t *scope,
 	    ((db_entry->proxytype != PROXY_ONLY) || proxy_fetch_func)) {
 	    /* Add the db entry to our list */
 	    struct annotate_f_entry_list *nentry =
-		xmalloc(sizeof(struct annotate_f_entry_list));
+		xzmalloc(sizeof(struct annotate_f_entry_list));
 
 	    nentry->next = fdata.entry_list;
 	    nentry->entry = db_entry;
