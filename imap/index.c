@@ -5430,6 +5430,28 @@ void appendsequencelist(struct index_state *state,
     seqset_append(l, sequence, maxval);
 }
 
+void index_parse_sequence_as_uids(struct index_state *state,
+				  struct seqset **l,
+				  const char *sequence,
+				  int usinguid)
+{
+    struct seqset *seq;
+    unsigned int msgno;
+
+    seq = _parse_sequence(state, sequence, usinguid);
+    if (usinguid) {
+	*l = seq;
+	return;
+    }
+
+    /* annotatemore wants uids - have to translate them */
+    *l = seqset_init(state->last_uid , SEQ_SPARSE);
+    while ((msgno = seqset_getnext(seq)))
+	seqset_add(*l, state->map[msgno-1].record.uid, 1);
+    seqset_rewind(*l);
+    seqset_free(seq);
+}
+
 void freesequencelist(struct seqset *l)
 {
     seqset_free(l);

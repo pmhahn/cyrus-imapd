@@ -256,6 +256,10 @@ extern int index_copy_remote(struct index_state *state, char *sequence,
 
 void appendsequencelist(struct index_state *state, struct seqset **l,
 			char *sequence, int usinguid);
+void index_parse_sequence_as_uids(struct index_state *state,
+				  struct seqset **l,
+				  const char *sequence,
+				  int usinguid);
 void freesequencelist(struct seqset *l);
 extern int index_expunge(struct index_state *state, char *uidsequence);
 

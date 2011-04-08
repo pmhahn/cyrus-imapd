@@ -161,7 +161,8 @@ struct storeargs {
 enum {
     STORE_ADD = 1,
     STORE_REMOVE = 2,
-    STORE_REPLACE = 3
+    STORE_REPLACE = 3,
+    STORE_ANNOTATION = 4
 };
 
 struct searchsub {

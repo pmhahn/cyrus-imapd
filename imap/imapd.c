@@ -420,6 +420,7 @@ static int parse_metadata_fetch_data(const char *tag,
 				     strarray_t *entries,
 				     strarray_t *attribs);
 static int parse_annotate_store_data(const char *tag,
+				     int must_be_list,
 				     struct entryattlist **entryatts);
 static int parse_metadata_store_data(const char *tag,
 				     struct entryattlist **entryatts);
@@ -4852,6 +4853,7 @@ void cmd_store(char *tag, char *sequence, int usinguid)
     int len, c;
     strarray_t flags = STRARRAY_INITIALIZER;
     int flagsparsed = 0, inlist = 0;
+    struct entryattlist *entryatts = NULL;
     int r;
 
     if (backend_current) {
@@ -4943,6 +4945,17 @@ void cmd_store(char *tag, char *sequence, int usinguid)
     else if (!strcmp(operation.s, "flags")) {
 	storeargs.operation = STORE_REPLACE;
     }
+    else if (!strcmp(operation.s, "annotation")) {
+	storeargs.operation = STORE_ANNOTATION;
+	/* ANNOTATION has implicit .SILENT behaviour */
+	storeargs.silent = 1;
+
+	c = parse_annotate_store_data(tag, /*must_be_list*/1,
+				      &entryatts);
+	if (c == EOF)
+	    goto freeflags;
+	goto notflagsdammit;
+    }
     else {
 	prot_printf(imapd_out, "%s BAD Invalid %s attribute\r\n", tag, cmd);
 	eatline(imapd_in, ' ');
@@ -5009,6 +5022,7 @@ void cmd_store(char *tag, char *sequence, int usinguid)
 	eatline(imapd_in, c);
 	goto freeflags;
     }
+notflagsdammit:
     if (c == '\r') c = prot_getc(imapd_in);
     if (c != '\n') {
 	prot_printf(imapd_out, "%s BAD Unexpected extra arguments to %s\r\n", tag, cmd);
@@ -5023,7 +5037,25 @@ void cmd_store(char *tag, char *sequence, int usinguid)
 		    index_highestmodseq(imapd_index));
     }
 
-    r = index_store(imapd_index, sequence, usinguid, &storeargs, &flags);
+    if (storeargs.operation == STORE_ANNOTATION) {
+	annotate_scope_t scope;
+	memset(&scope, 0, sizeof(scope));
+	scope.which = ANNOTATION_SCOPE_MESSAGE;
+	scope.mailbox = imapd_index->mailbox->name;
+	index_parse_sequence_as_uids(imapd_index,
+				     &scope.messages,
+				     sequence,
+				     usinguid);
+
+	r = annotatemore_store(&scope,
+			       entryatts, &imapd_namespace, imapd_userisadmin,
+			       imapd_userid, imapd_authstate);
+
+	seqset_free(scope.messages);
+    }
+    else {
+	r = index_store(imapd_index, sequence, usinguid, &storeargs, &flags);
+    }
 
     if (r) {
 	prot_printf(imapd_out, "%s NO %s\r\n", tag, error_message(r));
@@ -5034,6 +5066,7 @@ void cmd_store(char *tag, char *sequence, int usinguid)
     }
 
  freeflags:
+    if (entryatts) freeentryatts(entryatts);
     strarray_fini(&flags);
 }
 
@@ -8173,6 +8206,7 @@ static int parse_metadata_fetch_data(const char *tag,
  */
 
 static int parse_annotate_store_data(const char *tag,
+				     int must_be_list,
 				     struct entryattlist **entryatts)
 {
     int c, c2, islist = 0;
@@ -8191,6 +8225,11 @@ static int parse_annotate_store_data(const char *tag,
     else if (c == '(') {
 	/* entry list */
 	islist = 1;
+    }
+    else if (must_be_list) {
+	prot_printf(imapd_out,
+		    "%s BAD Missing paren for annotation entry\r\n", tag);
+	goto baddata;
     }
     else {
 	/* single entry -- put the char back */
@@ -8638,7 +8677,7 @@ static void cmd_setannotation(const char *tag, char *mboxpat)
     struct entryattlist *entryatts = NULL;
     annotate_scope_t scope;
 
-    c = parse_annotate_store_data(tag, &entryatts);
+    c = parse_annotate_store_data(tag, 0, &entryatts);
     if (c == EOF) {
 	eatline(imapd_in, c);
 	return;
