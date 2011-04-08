@@ -81,14 +81,17 @@ struct annotation_data {
 
 enum {
   ANNOTATION_SCOPE_SERVER = 1,
-  ANNOTATION_SCOPE_MAILBOX = 2
+  ANNOTATION_SCOPE_MAILBOX = 2,
+  ANNOTATION_SCOPE_MESSAGE = 3
 };
 
 typedef struct annotate_scope annotate_scope_t;
 struct annotate_scope
 {
     int which;			/* ANNOTATION_SCOPE_* */
-    const char *mailbox;	/* external mailbox pattern if _MAILBOX */
+    const char *mailbox;	/* external mailbox pattern if _MAILBOX
+				 * or external mailbox name if _MESSAGE */
+    struct seqset *messages;	/* UIDs for _MESSAGE */
 };
 
 /* String List Management */
