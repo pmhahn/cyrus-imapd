@@ -2640,7 +2640,7 @@ void cmd_id(char *tag)
 	    }
 	    
 	    /* ok, we're happy enough */
-	    appendattvalue(&params, field.s, arg.s);
+	    appendattvalue(&params, field.s, &arg);
 	}
 
 	if (error || c != ')') {
@@ -2674,12 +2674,12 @@ void cmd_id(char *tag)
 	    /* should we check for and format literals here ??? */
 	    snprintf(logbuf + strlen(logbuf), MAXIDLOGLEN - strlen(logbuf),
 		     " \"%s\" ", pptr->attrib);
-	    if (!strcmp(pptr->value, "NIL"))
+	    if (pptr->value.s == NULL || !strcmp(pptr->value.s, "NIL"))
 		snprintf(logbuf + strlen(logbuf), MAXIDLOGLEN - strlen(logbuf),
 			 "NIL");
 	    else
 		snprintf(logbuf + strlen(logbuf), MAXIDLOGLEN - strlen(logbuf),
-			"\"%s\"", pptr->value);
+			"\"%s\"", pptr->value.s);
 	}
 
 	syslog(LOG_INFO, "client id:%s", logbuf);
@@ -8208,7 +8208,6 @@ static int parse_annotate_store_data(const char *tag,
 				     struct entryattlist **entryatts)
 {
     int c, c2, islist = 0;
-    const char *v;
     static struct buf entry, attrib, value;
     struct attvaluelist *attvalues = NULL;
 
@@ -8275,13 +8274,12 @@ static int parse_annotate_store_data(const char *tag,
 		goto baddata;
 	    }
 
-	    v = value.s;
 	    /* detect an actual NIL, rather than e.g. a quoted "NIL" */
-	    if (c2 == 'N' && value.len == 3 && !strcmp(v, "NIL"))
-		v = NULL;
+	    if (c2 == 'N' && value.len == 3 && !strcmp(value.s, "NIL"))
+		buf_free(&value);
 
 	    /* add the attrib-value pair to the list */
-	    appendattvalue(&attvalues, attrib.s, v);
+	    appendattvalue(&attvalues, attrib.s, &value);
 
 	} while (c == ' ');
 
@@ -8330,7 +8328,6 @@ static int parse_metadata_store_data(const char *tag,
 				     struct entryattlist **entryatts)
 {
     int c, c2;
-    const char *v;
     const char *name;
     const char *att;
     static struct buf entry, value;
@@ -8365,10 +8362,9 @@ static int parse_metadata_store_data(const char *tag,
 			"%s BAD Missing metadata value\r\n", tag);
 	    goto baddata;
 	}
-	v = value.s;
 	/* detect an actual NIL, rather than e.g. a quoted "NIL" */
-	if (c2 == 'N' && value.len == 3 && !strcmp(v, "NIL"))
-	    v = NULL;
+	if (c2 == 'N' && value.len == 3 && !strcmp(value.s, "NIL"))
+	    buf_free(&value);
 
 	/* TODO: this is bogus, we should check for /private/ */
 	if (!strncmp(entry.s, "/private", 8)) {
@@ -8390,12 +8386,12 @@ static int parse_metadata_store_data(const char *tag,
 	for (entryp = *entryatts; entryp; entryp = entryp->next) {
 	    if (strcmp(entryp->entry, name)) continue;
 	    /* it's a match, have to append! */
-	    appendattvalue(&entryp->attvalues, att, v);
+	    appendattvalue(&entryp->attvalues, att, &value);
 	    need_add = 0;
 	    break;
 	}
 	if (need_add) {
-	    appendattvalue(&attvalues, att, v);
+	    appendattvalue(&attvalues, att, &value);
 	    appendentryatt(entryatts, name, attvalues);
 	    attvalues = NULL;
 	}
@@ -9274,7 +9270,7 @@ void cmd_dump(char *tag, char *name, int uid_start)
     if (!r) r = mailbox_open_irl(mailboxname, &mailbox);
 
     if (!r) r = dump_mailbox(tag, mailbox, uid_start, MAILBOX_MINOR_VERSION,
-			     imapd_in, imapd_out, imapd_authstate);
+			     imapd_out, imapd_authstate);
 
     if (r) {
 	prot_printf(imapd_out, "%s NO %s\r\n", tag, error_message(r));
@@ -9893,7 +9889,7 @@ static int xfer_undump(struct xfer_header *xfer)
 		    strlen(extname), extname);
 
 	r = dump_mailbox(NULL, mailbox, 0, xfer->remoteversion,
-			 xfer->be->in, xfer->be->out, imapd_authstate);
+			 xfer->be->out, imapd_authstate);
 
 	mailbox_close(&mailbox);
 

@@ -3748,7 +3748,7 @@ static void feedpeer(char *peer, message_data_t *msg)
 
 static void news2mail(message_data_t *msg)
 {
-    struct annotation_data attrib;
+    struct buf attrib = BUF_INITIALIZER;
     int n, r;
     FILE *sm;
     static strarray_t smbuf = STRARRAY_INITIALIZER;
@@ -3768,19 +3768,21 @@ static void news2mail(message_data_t *msg)
 
     for (n = 0; n < msg->rcpt.count ; n++) {
 	/* see if we want to send this to a mailing list */
+	buf_free(&attrib);
 	r = annotatemore_lookup(msg->rcpt.data[n],
 				"/vendor/cmu/cyrus-imapd/news2mail", "",
 				&attrib);
 	if (r) continue;
 
 	/* add the email address to our argv[] and to our To: header */
-	if (attrib.value) {
-	    strarray_append(&smbuf, attrib.value);
+	if (attrib.s) {
+	    strarray_append(&smbuf, attrib.s);
 
 	    if (to[0]) strlcat(to, ", ", sizeof(to));
 	    strlcat(to, attrib.value, sizeof(to));
 	}
     }
+    buf_free(&attrib);
 
     /* send the message */
     if (smbuf.count > smbuf_basic_count) {

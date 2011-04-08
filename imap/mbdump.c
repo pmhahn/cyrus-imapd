@@ -84,8 +84,7 @@
 #include "util.h"
 #include "index.h"
 
-static int dump_file(int first, int sync,
-		     struct protstream *pin, struct protstream *pout,
+static int dump_file(struct protstream *pout,
 		     const char *filename, const char *ftag);
 
 static void downgrade_header(struct index_header *i, char *buf, int version,
@@ -182,8 +181,8 @@ static void header_set_num_records(char *buf, unsigned int nrecords)
 /* create a downgraded index file in cyrus.index.  We don't copy back
  * expunged messages, sorry */
 static int dump_index(struct mailbox *mailbox, int oldversion,
-		      struct seqset *expunged_seq, int first, int sync,
-		      struct protstream *pin, struct protstream *pout)
+		      struct seqset *expunged_seq,
+		      struct protstream *pout)
 {
     char oldname[MAX_MAILBOX_PATH];
     const char *fname;
@@ -255,7 +254,7 @@ static int dump_index(struct mailbox *mailbox, int oldversion,
     }
 
     close(oldindex_fd);
-    r = dump_file(first, sync, pin, pout, oldname, "cyrus.index");
+    r = dump_file(pout, oldname, "cyrus.index");
     unlink(oldname);
     if (r) return r;
 
@@ -286,7 +285,7 @@ static int dump_index(struct mailbox *mailbox, int oldversion,
 	}
 
 	close(oldindex_fd);
-	r = dump_file(first, sync, pin, pout, oldname, "cyrus.expunge");
+	r = dump_file(pout, oldname, "cyrus.expunge");
 	unlink(oldname);
 	if (r) return r;
     }
@@ -337,49 +336,40 @@ static int sieve_isactive(const char *sievepath, const char *name)
     }
 }
 
-struct dump_annotation_rock
-{
-    struct protstream *pout;
-    const char *tag;
-};
-
 static int dump_annotations(const char *mailbox __attribute__((unused)),
 			    const char *entry,
 			    const char *userid,
-			    struct annotation_data *attrib, void *rock) 
+			    const struct buf *value, void *rock)
 {
-    struct dump_annotation_rock *ctx = (struct dump_annotation_rock *)rock;
+    struct protstream *pout = (struct protstream *)rock;
 
     /* "A-" userid entry */
     /* entry is delimited by its leading / */
-    unsigned long ename_size = 2 + strlen(userid) +  strlen(entry);
+    char *ename;
     static const char contenttype[] = "text/plain"; /* fake */
 
     /* Transfer all attributes for this annotation, don't transfer size
      * separately since that can be implicitly determined */
-    prot_printf(ctx->pout,
-		" {%ld%s}\r\nA-%s%s (%ld {" SIZE_T_FMT "%s}\r\n%s"
-		" {" SIZE_T_FMT "%s}\r\n%s)",
-		ename_size, (!ctx->tag ? "+" : ""),
-		userid, entry,
-		0L,  /* was modifiedsince */
-		attrib->size, (!ctx->tag ? "+" : ""),
-		attrib->value,
-		strlen(contenttype), (!ctx->tag ? "+" : ""),
-		contenttype);
+
+    ename = strconcat("A-", userid, entry, (char *)NULL);
+    prot_printliteral(pout, ename, strlen(ename));
+    free(ename);
+
+    prot_printf(pout, " (%ld ", 0L);  /* was modifiedsince */
+    prot_printliteral(pout, value->s, value->len);
+    prot_putc(' ', pout);
+    prot_printliteral(pout, contenttype, strlen(contenttype));
 
     return 0;
 }
 
-static int dump_file(int first, int sync,
-		     struct protstream *pin, struct protstream *pout,
+static int dump_file(struct protstream *pout,
 		     const char *filename, const char *ftag)
 {
     int filefd;
     const char *base;
     unsigned long len;
     struct stat sbuf;
-    char c;
 
     /* map file */
     syslog(LOG_DEBUG, "wanting to dump %s", filename);
@@ -404,28 +394,10 @@ static int dump_file(int first, int sync,
     close(filefd);
 
     /* send: name, size, and contents */
-    if (first) {
-	prot_printf(pout, " {" SIZE_T_FMT "}\r\n", strlen(ftag));
+    prot_printliteral(pout, ftag, strlen(ftag));
+    prot_putc(' ', pout);
+    prot_printliteral(pout, base, len);
 
-	if (sync) {
-	    /* synchronize */
-	    c = prot_getc(pin);
-	    eatline(pin, c); /* We eat it no matter what */
-	    if (c != '+') {
-		/* Synchronization Failure, Abort! */
-		syslog(LOG_ERR, "Sync Error: expected '+' got '%c'",c);
-		return IMAP_SERVER_UNAVAILABLE;
-	    }
-	}
-
-	prot_printf(pout, "%s {%lu%s}\r\n",
-		    ftag, len, (sync ? "+" : ""));
-    } else {
-	prot_printf(pout, " {" SIZE_T_FMT "%s}\r\n%s {%lu%s}\r\n",
-		    strlen(ftag), (sync ? "+" : ""),
-		    ftag, len, (sync ? "+" : ""));
-    }
-    prot_write(pout, base, len);
     map_free(&base, &len);
 
     return 0;
@@ -452,7 +424,7 @@ static int NUM_USER_DATA_FILES = 3;
 
 int dump_mailbox(const char *tag, struct mailbox *mailbox, uint32_t uid_start,
 		 int oldversion,
-		 struct protstream *pin, struct protstream *pout,
+		 struct protstream *pout,
 		 struct auth_state *auth_state __attribute((unused)))
 {
     DIR *mbdir = NULL;
@@ -460,7 +432,6 @@ int dump_mailbox(const char *tag, struct mailbox *mailbox, uint32_t uid_start,
     struct dirent *next = NULL;
     char filename[MAX_MAILBOX_PATH + 1024];
     const char *fname;
-    int first = 1;
     int i;
     struct data_file *df;
     struct seqset *expunged_seq = NULL;
@@ -480,6 +451,7 @@ int dump_mailbox(const char *tag, struct mailbox *mailbox, uint32_t uid_start,
      * the mailbox */
 
     if (tag) prot_printf(pout, "%s DUMP ", tag);
+    prot_setisclient(pout, !tag);
     (void)prot_putc('(', pout);
 
     /* The first member is either a number (if it is a quota root), or NIL
@@ -506,16 +478,13 @@ int dump_mailbox(const char *tag, struct mailbox *mailbox, uint32_t uid_start,
 	    syslog(LOG_NOTICE, "%s downgrading index to version %d for XFER",
 		   mailbox->name, oldversion);
 
-	    r = dump_index(mailbox, oldversion, expunged_seq,
-			   first, !tag, pin, pout);
+	    r = dump_index(mailbox, oldversion, expunged_seq, pout);
 	    if (r) goto done;
 
 	} else {
-	    r = dump_file(first, !tag, pin, pout, fname, df->fname);
+	    r = dump_file(pout, fname, df->fname);
 	    if (r) goto done;
 	}
-
-	first = 0;
     }
 
     /* Dump message files */
@@ -543,7 +512,7 @@ int dump_mailbox(const char *tag, struct mailbox *mailbox, uint32_t uid_start,
 	/* construct path/filename */
 	fname = mailbox_message_fname(mailbox, uid);
 
-	r = dump_file(0, !tag, pin, pout, fname, name);
+	r = dump_file(pout, fname, name);
 	if (r) goto done;
     }
 
@@ -551,13 +520,8 @@ int dump_mailbox(const char *tag, struct mailbox *mailbox, uint32_t uid_start,
     mbdir = NULL;
 
     /* Dump annotations */
-    {
-	struct dump_annotation_rock actx;
-	actx.tag = tag;
-	actx.pout = pout;
-	annotatemore_findall(mailbox->name, "*", dump_annotations,
-			     (void *) &actx, NULL);
-    }
+    annotatemore_findall(mailbox->name, "*", dump_annotations,
+			 (void *) pout, NULL);
 
     /* Dump user files if this is an inbox */
     if (mboxname_isusermailbox(mailbox->name, 1)) {
@@ -586,7 +550,7 @@ int dump_mailbox(const char *tag, struct mailbox *mailbox, uint32_t uid_start,
 		fatal("unknown user data file", EC_OSFILE);
 	    }
 
-	    r = dump_file(0, !tag, pin, pout, fname, ftag);
+	    r = dump_file(pout, fname, ftag);
 	    free(fname);
 	    if (r) goto done;
 	}
@@ -628,7 +592,7 @@ int dump_mailbox(const char *tag, struct mailbox *mailbox, uint32_t uid_start,
 				 sieve_path, next->d_name);
 
 			/* dump file */
-			r = dump_file(0, !tag, pin, pout, filename, tag_fname);
+			r = dump_file(pout, filename, tag_fname);
 			if (r) goto done;
 		    }
 		}
@@ -736,7 +700,7 @@ int undump_mailbox(const char *mbname,
     int sieve_usehomedir = config_getswitch(IMAPOPT_SIEVEUSEHOMEDIR);
     const char *userid = NULL;
     char *annotation = NULL;
-    char *content = NULL;
+    struct buf content = BUF_INITIALIZER;
     char *seen_file = NULL;
     char *mboxkey_file = NULL;
     uquota_t old_quota_used = 0;
@@ -803,7 +767,7 @@ int undump_mailbox(const char *mbname,
 	unsigned long cutoff = ULONG_MAX / 10;
 	unsigned digit, cutlim = ULONG_MAX % 10;
 	annotation = NULL;
-	content = NULL;
+	buf_reset(&content);
 	seen_file = NULL;
 	mboxkey_file = NULL;
 	
@@ -815,7 +779,6 @@ int undump_mailbox(const char *mbname,
 
 	if(!strncmp(file.s, "A-", 2)) {
 	    /* Annotation */
-	    size_t contentsize;
 	    int i;
 	    char *tmpuserid;
 
@@ -847,10 +810,8 @@ int undump_mailbox(const char *mbname,
 		goto done;
 	    }
 
-	    c = getbastring(pin, pout, &data);
+	    c = getbastring(pin, pout, &content);
 	    /* xxx binary */
-	    content = xstrdup(data.s);
-	    contentsize = data.len;
 
 	    if(c != ' ') {
 		r = IMAP_PROTOCOL_ERROR;
@@ -867,14 +828,13 @@ int undump_mailbox(const char *mbname,
 		goto done;
 	    }
 
-	    annotatemore_write_entry(mbname, annotation, tmpuserid, content,
-				     contentsize, NULL);
+	    annotatemore_write_entry(mbname, annotation, tmpuserid,
+				     &content, NULL);
     
 	    free(tmpuserid);
 	    free(annotation);
-	    free(content);
 	    annotation = NULL;
-	    content = NULL;
+	    buf_reset(&content);
 
 	    c = prot_getc(pin);
 	    if(c == ')') break; /* that was the last item */
@@ -1139,7 +1099,7 @@ int undump_mailbox(const char *mbname,
     mailbox_close(&mailbox);
     
     free(annotation);
-    free(content);
+    buf_free(&content);
     free(seen_file);
     free(mboxkey_file);
 

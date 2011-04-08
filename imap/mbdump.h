@@ -53,15 +53,15 @@
  *  a) do not use the + syntax for nonsynchronized literals
  *  b) preface the response with <tag> DUMP
  *
- * if tag is NULL, then we use the + nonsynchronized syntax for everything
- * after the first send.
+ * if tag is NULL, then we use the + nonsynchronized syntax for
+ * everything.
  *
  * (note that this assumes server LITERAL+ support, but we don't care since
  * this is a Cyrus-only extention)
  */
 extern int dump_mailbox(const char *tag, struct mailbox *mailbox, uint32_t uid_start,
 			int oldversion,
-			struct protstream *pin, struct protstream *pout,
+			struct protstream *pout,
 			struct auth_state *auth_state);
 extern int undump_mailbox(const char *mbname,
 			  struct protstream *pin, struct protstream *pout,

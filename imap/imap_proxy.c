@@ -1300,10 +1300,7 @@ int annotate_store_proxy(const char *server, const char *mbox_pat,
 
 	for (av = e->attvalues; av; av = av->next) {
 	    prot_printf(be->out, "\"%s\" ", av->attrib);
-	    if (av->value)
-		prot_printstring(be->out, av->value);
-	    else
-		prot_printf(be->out, "NIL");
+	    prot_printmap(be->out, av->value.s, av->value.len);
 	    prot_printf(be->out, "%s", av->next ? " " : "");
 	}
 	prot_printf(be->out, ")");
