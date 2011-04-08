@@ -308,6 +308,12 @@ int seqset_ismember(struct seqset *seq, unsigned num)
     return 0;
 }
 
+void seqset_rewind(struct seqset *seq)
+{
+    seq->current = 0;
+    seq->prev = 0;
+}
+
 unsigned seqset_getnext(struct seqset *seq)
 {
     unsigned num;
