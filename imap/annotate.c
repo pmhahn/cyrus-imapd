@@ -651,7 +651,7 @@ static void output_entryatt(const annotate_cursor_t *cursor, const char *entry,
     /* We have to reset before each GETANNOTATION command.
      * Handle it as a dirty hack.
      */
-    if (!cursor || !entry) {
+    if (!entry) {
 	attvalues = NULL;
 	lastwhich = 0;
 	lastname[0] = '\0';
@@ -666,7 +666,7 @@ static void output_entryatt(const annotate_cursor_t *cursor, const char *entry,
      * Handle it as a dirty hack.
      */
     if ((!attrib || !cursor || cursor->which != lastwhich ||
-	strcmp(cursor->ext_mboxname, lastname) || strcmp(entry, lastentry))
+	strcmp(cursor->int_mboxname, lastname) || strcmp(entry, lastentry))
 	&& attvalues) {
 	if (fdata->ismetadata) {
 	    prot_printf(fdata->pout, "* METADATA \"%s\" ",
@@ -684,11 +684,12 @@ static void output_entryatt(const annotate_cursor_t *cursor, const char *entry,
 	freeattvalues(attvalues);
 	attvalues = NULL;
     }
+    if (!cursor) return;
     if (!attrib) return;
 
     lastwhich = cursor->which;
     if (cursor->which == ANNOTATION_SCOPE_MAILBOX)
-	strlcpy(lastname, cursor->ext_mboxname, sizeof(lastname));
+	strlcpy(lastname, cursor->int_mboxname, sizeof(lastname));
     else
 	lastname[0] = '\0';
     strlcpy(lastentry, entry, sizeof(lastentry));
