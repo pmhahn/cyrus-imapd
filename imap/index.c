@@ -2670,6 +2670,39 @@ void index_tellchanges(struct index_state *state, int canexpunge,
 	    index_printflags(state, msgno, printuid);
     }
 }
+
+/*
+ * Helper function to send FETCH data for the ANNOTATION
+ * fetch item.
+ */
+static int index_fetchannotations(struct index_state *state,
+				  uint32_t msgno,
+				  const struct fetchargs *fetchargs)
+{
+    annotate_scope_t scope;
+    int r = 0;
+
+    memset(&scope, 0, sizeof(scope));
+    scope.which = ANNOTATION_SCOPE_MESSAGE;
+    scope.mailbox = state->mailbox->name;
+    scope.messages = seqset_init(state->last_uid, SEQ_SPARSE);
+    seqset_add(scope.messages, state->map[msgno-1].record.uid, 1);
+    seqset_rewind(scope.messages);
+
+    r = annotatemore_fetch(&scope,
+			   &fetchargs->entries,
+			   &fetchargs->attribs,
+			   fetchargs->namespace,
+			   fetchargs->isadmin,
+			   fetchargs->userid,
+			   fetchargs->authstate,
+			   state->out,
+			   0, 0);
+
+    seqset_free(scope.messages);
+    return r;
+}
+
 /*
  * Helper function to send * FETCH (FLAGS data.
  * Does not send the terminating close paren or CRLF.
@@ -2883,6 +2916,13 @@ static int index_fetchreply(struct index_state *state, uint32_t msgno,
     if ((fetchitems & FETCH_UIDVALIDITY)) {
 	prot_printf(state->out, "%cUIDVALIDITY %u", sepchar,
 		    state->mailbox->i.uidvalidity);
+	sepchar = ' ';
+    }
+    if ((fetchitems & FETCH_ANNOTATION)) {
+	prot_printf(state->out, "%cANNOTATION (", sepchar);
+	r = index_fetchannotations(state, msgno, fetchargs);
+	r = 0;
+	prot_printf(state->out, ")");
 	sepchar = ' ';
     }
     if (fetchitems & FETCH_ENVELOPE) {

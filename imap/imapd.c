@@ -3968,6 +3968,27 @@ static int parse_fetch_args(const char *tag, const char *cmd,
 	    if (!inlist && !strcmp(fetchatt.s, "ALL")) {
 		fetchitems |= FETCH_ALL;
 	    }
+	    else if (!strcmp(fetchatt.s, "ANNOTATION")) {
+		fetchitems |= FETCH_ANNOTATION;
+		if (c != ' ')
+		    goto badannotation;
+		c = prot_getc(imapd_in);
+		if (c != '(')
+		    goto badannotation;
+		c = parse_annotate_fetch_data(tag, &fetchargs.entries,
+					      &fetchargs.attribs);
+		if (c == EOF) {
+		    eatline(imapd_in, c);
+		    goto freeargs;
+		}
+		if (c != ')') {
+badannotation:
+		    prot_printf(imapd_out, "%s BAD invalid Annotation\r\n", tag);
+		    eatline(imapd_in, c);
+		    goto freeargs;
+		}
+		c = prot_getc(imapd_in);
+	    }
 	    else goto badatt;
 	    break;
 
@@ -4389,9 +4410,13 @@ static int parse_fetch_args(const char *tag, const char *cmd,
 	}
     }
 
-    if (fetchitems & FETCH_FOLDER) {
+    if (fetchitems & (FETCH_FOLDER|FETCH_ANNOTATION)) {
 	fetchargs.namespace = &imapd_namespace;
 	fetchargs.userid = imapd_userid;
+    }
+    if (fetchitems & FETCH_ANNOTATION) {
+	fetchargs.isadmin = imapd_userisadmin || imapd_userisproxyadmin;
+	fetchargs.authstate = imapd_authstate;
     }
 
     *fa = fetchargs;
@@ -4458,6 +4483,8 @@ void cmd_fetch(char *tag, char *sequence, int usinguid)
     freefieldlist(fetchargs.fsections);
     strarray_fini(&fetchargs.headers);
     strarray_fini(&fetchargs.headers_not);
+    strarray_fini(&fetchargs.entries);
+    strarray_fini(&fetchargs.attribs);
 }
 
 static void do_one_xconvmeta(conversation_id_t cid,
@@ -4692,6 +4719,8 @@ freeargs:
     freefieldlist(fetchargs.fsections);
     strarray_fini(&fetchargs.headers);
     strarray_fini(&fetchargs.headers_not);
+    strarray_fini(&fetchargs.entries);
+    strarray_fini(&fetchargs.attribs);
     return;
 
 syntax_error:
