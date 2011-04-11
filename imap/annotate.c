@@ -670,6 +670,7 @@ static void output_entryatt(const annotate_cursor_t *cursor, const char *entry,
 			    const char *userid, struct annotation_data *attrib,
 			    struct fetchdata *fdata)
 {
+    const char *mboxname = "";
     static struct attvaluelist *attvalues = NULL;
     static int lastwhich;
     static char lastname[MAX_MAILBOX_BUFFER];
@@ -693,6 +694,13 @@ static void output_entryatt(const annotate_cursor_t *cursor, const char *entry,
 	return;
     }
 
+    if (cursor) {
+	if (cursor->ext_mboxname)
+	    mboxname = cursor->ext_mboxname;
+	else
+	    mboxname = cursor->int_mboxname;
+    }
+
     /* Check if this is a new entry.
      * If so, flush our current entry.  Otherwise append the entry.
      *
@@ -701,7 +709,7 @@ static void output_entryatt(const annotate_cursor_t *cursor, const char *entry,
      */
     if ((!attrib || !cursor || cursor->which != lastwhich ||
 	cursor->uid != lastuid ||
-	strcmp(cursor->int_mboxname, lastname) || strcmp(entry, lastentry))
+	strcmp(mboxname, lastname) || strcmp(entry, lastentry))
 	&& attvalues) {
 	if (fdata->ismessage) {
 	    prot_printf(fdata->pout, "%s\"%s\" ",
@@ -731,7 +739,7 @@ static void output_entryatt(const annotate_cursor_t *cursor, const char *entry,
     lastwhich = cursor->which;
     if (cursor->which == ANNOTATION_SCOPE_MAILBOX ||
         cursor->which == ANNOTATION_SCOPE_MESSAGE)
-	strlcpy(lastname, cursor->int_mboxname, sizeof(lastname));
+	strlcpy(lastname, mboxname, sizeof(lastname));
     else
 	lastname[0] = '\0';
     strlcpy(lastentry, entry, sizeof(lastentry));
