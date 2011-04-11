@@ -983,6 +983,7 @@ static void annotation_get_lastpop(const annotate_cursor_t *cursor,
 				   struct fetchdata *fdata,
 				   void *rock __attribute__((unused)))
 { 
+    time_t date;
     struct mailbox *mailbox = NULL;
     char value[RFC3501_DATETIME_MAX+1];
     struct annotation_data attrib;
@@ -1001,18 +1002,16 @@ static void annotation_get_lastpop(const annotate_cursor_t *cursor,
     if (mailbox_open_irl(cursor->int_mboxname, &mailbox) != 0)
 	return;
 
-    if (mailbox->i.pop3_last_login == 0) {
-	strcpy (value, " ");
-    } else {
-	time_to_rfc3501(mailbox->i.pop3_last_login, value, sizeof(value));
-    }
+    date = mailbox->i.pop3_last_login;
 
     mailbox_close(&mailbox);
 
-    memset(&attrib, 0, sizeof(attrib));
-
-    attrib.value = value;
-    attrib.size = strlen(value);
+    if (date != 0)
+    {
+	time_to_rfc3501(date, value, sizeof(value));
+	attrib.value = value;
+	attrib.size = strlen(value);
+    }
 
     output_entryatt(cursor, entry, "", &attrib, fdata);
 }
