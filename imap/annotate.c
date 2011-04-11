@@ -1640,10 +1640,12 @@ int annotatemore_fetch(const annotate_scope_t *scope,
 	     annotation_attributes[attribcount].name;
 	     attribcount++) {
 	    if (GLOB_TEST(g, annotation_attributes[attribcount].name) != -1) {
-		if (annotation_attributes[attribcount].entry & ATTRIB_DEPRECATED)
-		    syslog(LOG_WARNING, "annotatemore_fetch: client used "
-				        "deprecated attribute \"%s\", ignoring",
-				        annotation_attributes[attribcount].name);
+		if (annotation_attributes[attribcount].entry & ATTRIB_DEPRECATED) {
+		    if (strcmp(s, "*"))
+			syslog(LOG_WARNING, "annotatemore_fetch: client used "
+					    "deprecated attribute \"%s\", ignoring",
+					    annotation_attributes[attribcount].name);
+		}
 		else
 		    fdata.attribs |= annotation_attributes[attribcount].entry;
 	    }
