@@ -165,6 +165,14 @@ enum {
     STORE_ANNOTATION = 4
 };
 
+struct searchannot {
+    struct searchannot *next;
+    char *entry;
+    char *attrib;
+    char *userid;
+    struct buf value;
+};
+
 struct searchsub {
     struct searchsub *next;
     struct searchargs *sub1;
@@ -215,6 +223,7 @@ struct searchargs {
     struct strlist *header_name, *header;
     struct searchsub *sublist;
     modseq_t modseq;
+    struct searchannot *annotations;
 
     bit32 cache_atleast;
 

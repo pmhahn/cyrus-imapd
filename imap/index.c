@@ -3434,6 +3434,7 @@ static int index_search_evaluate(struct index_state *state,
     struct seqset *seq;
     struct mailbox *mailbox = state->mailbox;
     struct index_map *im = &state->map[msgno-1];
+    struct searchannot *sa;
 
     if ((searchargs->flags & SEARCH_RECENT_SET) && !im->isrecent)
 	return 0;
@@ -3550,6 +3551,13 @@ static int index_search_evaluate(struct index_state *state,
 		!_search_searchbuf(l->s, l->p, cacheitem_buf(&im->record, CACHE_SUBJECT)))
 		return 0;
 	}
+    }
+
+    for (sa = searchargs->annotations ; sa ; sa = sa->next) {
+	if (!annotatemore_msg_search(state->mailbox->name,
+				     im->record.uid, sa->entry,
+				     sa->userid, sa->attrib, &sa->value))
+	    return 0;
     }
 
     for (s = searchargs->sublist; s; s = s->next) {

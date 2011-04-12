@@ -8748,6 +8748,65 @@ static void cmd_setmetadata(const char *tag, char *mboxpat)
 }
 
 /*
+ * Parse a ANNOTATION item for SEARCH (RFC5257) into a struct
+ * searchannot and append it to the chain of such structures at *lp.
+ * Returns the next character.
+ */
+static int parse_search_annotation(int c, struct searchannot **lp)
+{
+    struct searchannot *sa;
+    struct buf entry = BUF_INITIALIZER;
+    struct buf attrib = BUF_INITIALIZER;
+    struct buf value = BUF_INITIALIZER;
+    int c2;
+
+    if (c != ' ')
+	return EOF;
+
+    /* parse the entry */
+    c = getastring(imapd_in, imapd_out, &entry);
+    if (!entry.len || c != ' ') {
+	c = EOF;
+	goto out;
+    }
+
+    /* parse the attrib */
+    c = getastring(imapd_in, imapd_out, &attrib);
+    if (!attrib.len || c != ' ') {
+	c = EOF;
+	goto out;
+    }
+
+    /* parse the value */
+    c2 = prot_getc(imapd_in);
+    prot_ungetc(c2, imapd_in);
+    c = getnstring(imapd_in, imapd_out, &value);
+    /* detect an actual NIL, rather than e.g. a quoted "NIL" */
+    if (c2 == 'N' && value.len == 3 && !strcmp(value.s, "NIL"))
+	buf_free(&value);
+    else if (c == EOF)
+	goto out;
+
+    sa = xzmalloc(sizeof(*sa));
+    sa->entry = buf_release(&entry);
+    sa->attrib = buf_release(&attrib);
+    sa->userid = xstrdup(imapd_userid);
+    buf_move(&sa->value, &value);
+
+    /* append to *lp: move lp along the chain until
+     * it points to the last ->next pointer */
+    while (*lp && (*lp)->next)
+	lp = &(*lp)->next;
+    *lp = sa;
+
+out:
+    buf_free(&entry);
+    buf_free(&attrib);
+    buf_free(&value);
+    return c;
+}
+
+/*
  * Parse search return options
  */
 int getsearchreturnopts(char *tag, struct searchargs *searchargs)
@@ -8858,6 +8917,11 @@ int getsearchcriteria(char *tag, struct searchargs *searchargs,
 	}
 	else if (!strcmp(criteria.s, "all")) {
 	    break;
+	}
+	else if (!strcmp(criteria.s, "annotation")) {
+	    c = parse_search_annotation(c, &searchargs->annotations);
+	    if (c == EOF)
+		goto badcri;
 	}
 	else goto badcri;
 	break;
@@ -10815,6 +10879,7 @@ void appendsearchargs(struct searchargs *s,
 void freesearchargs(struct searchargs *s)
 {
     struct searchsub *sub, *n;
+    struct searchannot *sa;
 
     if (!s) return;
 
@@ -10829,6 +10894,15 @@ void freesearchargs(struct searchargs *s)
     freestrlist(s->text);
     freestrlist(s->header_name);
     freestrlist(s->header);
+
+    while ((sa = s->annotations)) {
+	s->annotations = sa->next;
+	free(sa->entry);
+	free(sa->attrib);
+	free(sa->userid);
+	buf_free(&sa->value);
+	free(sa);
+    }
 
     for (sub = s->sublist; sub; sub = n) {
 	n = sub->next;
