@@ -8840,6 +8840,12 @@ static int parse_search_annotation(int c, struct searchannot **lp)
 	c = EOF;
 	goto out;
     }
+    if (strcmp(attrib.s, "value") &&
+        strcmp(attrib.s, "value.shared") &&
+        strcmp(attrib.s, "value.priv")) {
+	c = EOF;
+	goto out;
+    }
 
     /* parse the value */
     c2 = prot_getc(imapd_in);
@@ -8854,7 +8860,10 @@ static int parse_search_annotation(int c, struct searchannot **lp)
     sa = xzmalloc(sizeof(*sa));
     sa->entry = buf_release(&entry);
     sa->attrib = buf_release(&attrib);
-    sa->userid = xstrdup(imapd_userid);
+    sa->namespace = &imapd_namespace;
+    sa->isadmin = imapd_userisadmin || imapd_userisproxyadmin;
+    sa->userid = imapd_userid;
+    sa->auth_state = imapd_authstate;
     buf_move(&sa->value, &value);
 
     /* append to *lp: move lp along the chain until
@@ -10963,7 +10972,6 @@ void freesearchargs(struct searchargs *s)
 	s->annotations = sa->next;
 	free(sa->entry);
 	free(sa->attrib);
-	free(sa->userid);
 	buf_free(&sa->value);
 	free(sa);
     }

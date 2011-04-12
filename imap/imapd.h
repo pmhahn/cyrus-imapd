@@ -169,7 +169,10 @@ struct searchannot {
     struct searchannot *next;
     char *entry;
     char *attrib;
-    char *userid;
+    struct namespace *namespace;
+    int isadmin;
+    const char *userid;
+    struct auth_state *auth_state;
     struct buf value;
 };
 

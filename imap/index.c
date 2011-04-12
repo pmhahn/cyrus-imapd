@@ -3456,6 +3456,89 @@ int _search_searchbuf(char *s, comp_pat *p, struct buf *b)
     return charset_searchstring(s, p, b->s, b->len);
 }
 
+struct search_annot_rock {
+    int result;
+    const struct buf *match;
+};
+
+static int _search_annot_match(const struct buf *match,
+			       const struct buf *value)
+{
+    /* These cases are not explicitly defined in RFC5257 */
+
+    /* NIL matches NIL and nothing else */
+    if (match->s == NULL)
+	return (value->s == NULL);
+    if (value->s == NULL)
+	return 0;
+
+    /* empty matches empty and nothing else */
+    if (match->len == 0)
+	return (value->len == 0);
+    if (value->len == 0)
+	return 0;
+
+    /* RFC5257 seems to define a simple CONTAINS style search */
+    return !!memmem(value->s, value->len,
+		    match->s, match->len);
+}
+
+static void _search_annot_callback(const char *mboxname
+				    __attribute__((unused)),
+				   uint32_t uid
+				    __attribute__((unused)),
+				   const char *entry
+				    __attribute__((unused)),
+				   struct attvaluelist *attvalues,
+				   void *rock)
+{
+    struct search_annot_rock *sarock = rock;
+    struct attvaluelist *l;
+
+    for (l = attvalues ; l ; l = l->next) {
+	if (_search_annot_match(sarock->match, &l->value))
+	    sarock->result = 1;
+    }
+}
+
+static int _search_annotation(struct index_state *state,
+			      uint32_t msgno,
+			      struct searchannot *sa)
+{
+    strarray_t entries = STRARRAY_INITIALIZER;
+    strarray_t attribs = STRARRAY_INITIALIZER;
+    annotate_scope_t scope;
+    struct search_annot_rock rock;
+    int r;
+
+    strarray_append(&entries, sa->entry);
+    strarray_append(&attribs, sa->attrib);
+
+    memset(&scope, 0, sizeof(scope));
+    scope.which = ANNOTATION_SCOPE_MESSAGE;
+    scope.mailbox = state->mailbox->name;
+    scope.messages = seqset_init(state->last_uid, SEQ_SPARSE);
+    seqset_add(scope.messages, state->map[msgno-1].record.uid, 1);
+    seqset_rewind(scope.messages);
+
+    memset(&rock, 0, sizeof(rock));
+    rock.match = &sa->value;
+
+    r = annotatemore_fetch(&scope,
+			    &entries, &attribs,
+			    sa->namespace, sa->isadmin,
+			    sa->userid, sa->auth_state,
+			    _search_annot_callback, &rock,
+			    0);
+    if (r >= 0)
+	r = rock.result;
+
+    strarray_fini(&entries);
+    strarray_fini(&attribs);
+    seqset_free(scope.messages);
+    return r;
+}
+
 /*
  * Evaluate a searchargs structure on a msgno
  *
@@ -3592,9 +3675,7 @@ static int index_search_evaluate(struct index_state *state,
     }
 
     for (sa = searchargs->annotations ; sa ; sa = sa->next) {
-	if (!annotatemore_msg_search(state->mailbox->name,
-				     im->record.uid, sa->entry,
-				     sa->userid, sa->attrib, &sa->value))
+	if (!_search_annotation(state, msgno, sa))
 	    return 0;
     }
 

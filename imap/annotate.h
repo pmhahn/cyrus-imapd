@@ -148,11 +148,6 @@ int annotatemore_lookup(const char *mboxname, const char *entry,
 int annotatemore_msg_lookup(const char *mboxname, uint32_t uid, const char *entry,
 			    const char *userid, struct buf *value);
 
-/* Search annotations for a given message */
-int annotatemore_msg_search(const char *mboxname, uint32_t uid,
-			    const char *entry, const char *userid,
-			    const char *attrib, const struct buf *match);
-
 /* store annotations */
 int annotatemore_store(const annotate_scope_t *,
 		       struct entryattlist *l, struct namespace *namespace,
