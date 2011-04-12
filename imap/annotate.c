@@ -594,6 +594,13 @@ struct fetchdata {
     int ismessage;
     int maxsize;
     int *sizeptr;
+
+    /* state for output_entryatt */
+    struct attvaluelist *attvalues;
+    char lastname[MAX_MAILBOX_BUFFER];
+    char lastentry[MAX_MAILBOX_BUFFER];
+    uint32_t lastuid;
+    const char *sep;
 };
 
 static void output_attlist(struct protstream *pout, struct attvaluelist *l,
@@ -655,6 +662,39 @@ static void output_metalist(struct protstream *pout, struct attvaluelist *l,
     buf_free(&mentry);
 }
 
+static void flush_entryatt(struct fetchdata *fdata)
+{
+    if (!fdata->attvalues)
+	return;	    /* nothing to flush */
+
+    if (fdata->ismessage) {
+	prot_printf(fdata->pout, "%s", fdata->sep);
+	prot_printastring(fdata->pout, fdata->lastentry);
+	prot_putc(' ', fdata->pout);
+	output_attlist(fdata->pout, fdata->attvalues, /*atoms_flag*/1);
+	fdata->sep = " ";
+    }
+    else if (fdata->ismetadata) {
+	prot_printf(fdata->pout, "* METADATA ");
+	prot_printastring(fdata->pout, fdata->lastname);
+	prot_putc(' ', fdata->pout);
+	output_metalist(fdata->pout, fdata->attvalues, fdata->lastentry);
+	prot_printf(fdata->pout, "\r\n");
+    }
+    else {
+	prot_printf(fdata->pout, "* ANNOTATION ");
+	prot_printastring(fdata->pout, fdata->lastname);
+	prot_putc(' ', fdata->pout);
+	prot_printstring(fdata->pout, fdata->lastentry);
+	prot_putc(' ', fdata->pout);
+	output_attlist(fdata->pout, fdata->attvalues, /*atoms_flag*/0);
+	prot_printf(fdata->pout, "\r\n");
+    }
+
+    freeattvalues(fdata->attvalues);
+    fdata->attvalues = NULL;
+}
+
 /* Output a single entry and attributes for a single mailbox.
  * Shared and private annotations are output together by caching
  * the attributes until the mailbox and/or entry changes.
@@ -666,88 +706,40 @@ static void output_entryatt(const annotate_cursor_t *cursor, const char *entry,
 			    const char *userid, const struct buf *value,
 			    struct fetchdata *fdata)
 {
-    const char *mboxname = "";
-    static struct attvaluelist *attvalues = NULL;
-    static int lastwhich;
-    static char lastname[MAX_MAILBOX_BUFFER];
-    static char lastentry[MAX_MAILBOX_BUFFER];
-    static uint32_t lastuid;
-    static const char *sep;
+    const char *mboxname;
     char key[MAX_MAILBOX_BUFFER]; /* XXX MAX_MAILBOX_NAME + entry + userid */
     struct buf buf = BUF_INITIALIZER;
     int vallen;
 
-    /* We have to reset before each GETANNOTATION command.
-     * Handle it as a dirty hack.
-     */
-    if (!entry) {
-	attvalues = NULL;
-	lastwhich = 0;
-	lastname[0] = '\0';
-	lastentry[0] = '\0';
-	lastuid = 0;
-	sep = "";
-	return;
-    }
+    /* We don't put any funny interpretations on NULL values for
+     * some of these anymore, now that the dirty hacks are gone. */
+    assert(cursor);
+    assert(entry);
+    assert(userid);
+    assert(value);
+    assert(fdata);
 
-    if (cursor) {
-	if (cursor->ext_mboxname)
-	    mboxname = cursor->ext_mboxname;
-	else
-	    mboxname = cursor->int_mboxname;
-    }
+    if (cursor->ext_mboxname)
+	mboxname = cursor->ext_mboxname;
+    else if (cursor->ext_mboxname)
+	mboxname = cursor->int_mboxname;
+    else
+	mboxname = "";
 
     /* Check if this is a new entry.
-     * If so, flush our current entry.  Otherwise append the entry.
-     *
-     * We also need a way to flush the last cached entry when we're done.
-     * Handle it as a dirty hack.
+     * If so, flush our current entry.
      */
-    if ((!value || !cursor || cursor->which != lastwhich ||
-	cursor->uid != lastuid ||
-	strcmp(mboxname, lastname) || strcmp(entry, lastentry))
-	&& attvalues) {
-	if (fdata->ismessage) {
-	    prot_printf(fdata->pout, "%s", sep);
-	    prot_printastring(fdata->pout, lastentry);
-	    prot_putc(' ', fdata->pout);
-	    output_attlist(fdata->pout, attvalues, /*atoms_flag*/1);
-	    sep = " ";
-	}
-	else if (fdata->ismetadata) {
-	    prot_printf(fdata->pout, "* METADATA ");
-	    prot_printastring(fdata->pout, lastname);
-	    prot_putc(' ', fdata->pout);
-	    output_metalist(fdata->pout, attvalues, lastentry);
-	    prot_printf(fdata->pout, "\r\n");
-	}
-	else {
-	    prot_printf(fdata->pout, "* ANNOTATION ");
-	    prot_printastring(fdata->pout, lastname);
-	    prot_putc(' ', fdata->pout);
-	    prot_printstring(fdata->pout, lastentry);
-	    prot_putc(' ', fdata->pout);
-	    output_attlist(fdata->pout, attvalues, /*atoms_flag*/0);
-	    prot_printf(fdata->pout, "\r\n");
-	}
-	
-	freeattvalues(attvalues);
-	attvalues = NULL;
-    }
-    if (!cursor) return;
-    if (!value) return;
+    if (cursor->uid != fdata->lastuid ||
+	strcmp(mboxname, fdata->lastname) ||
+	strcmp(entry, fdata->lastentry))
+	flush_entryatt(fdata);
 
-    lastwhich = cursor->which;
-    if (cursor->which == ANNOTATION_SCOPE_MAILBOX ||
-        cursor->which == ANNOTATION_SCOPE_MESSAGE)
-	strlcpy(lastname, mboxname, sizeof(lastname));
-    else
-	lastname[0] = '\0';
-    strlcpy(lastentry, entry, sizeof(lastentry));
-    lastuid = cursor->uid;
+    strlcpy(fdata->lastname, mboxname, sizeof(fdata->lastname));
+    strlcpy(fdata->lastentry, entry, sizeof(fdata->lastentry));
+    fdata->lastuid = cursor->uid;
 
     /* check if we already returned this entry */
-    strlcpy(key, lastname, sizeof(key));
+    strlcpy(key, mboxname, sizeof(key));
     if (cursor->uid) {
 	char uidbuf[32];
 	snprintf(uidbuf, sizeof(uidbuf), "/UID%u/", cursor->uid);
@@ -768,27 +760,27 @@ static void output_entryatt(const annotate_cursor_t *cursor, const char *entry,
 
     if (!userid[0]) { /* shared annotation */
 	if ((fdata->attribs & ATTRIB_VALUE_SHARED)) {
-	    appendattvalue(&attvalues, "value.shared", value);
+	    appendattvalue(&fdata->attvalues, "value.shared", value);
 	    fdata->found |= ATTRIB_VALUE_SHARED;
 	}
 
 	if ((fdata->attribs & ATTRIB_SIZE_SHARED)) {
 	    buf_reset(&buf);
 	    buf_printf(&buf, "%u", value->len);
-	    appendattvalue(&attvalues, "size.shared", &buf);
+	    appendattvalue(&fdata->attvalues, "size.shared", &buf);
 	    fdata->found |= ATTRIB_SIZE_SHARED;
 	}
     }
     else { /* private annotation */
 	if ((fdata->attribs & ATTRIB_VALUE_PRIV)) {
-	    appendattvalue(&attvalues, "value.priv", value);
+	    appendattvalue(&fdata->attvalues, "value.priv", value);
 	    fdata->found |= ATTRIB_VALUE_PRIV;
 	}
 
 	if ((fdata->attribs & ATTRIB_SIZE_PRIV)) {
 	    buf_reset(&buf);
 	    buf_printf(&buf, "%u", value->len);
-	    appendattvalue(&attvalues, "size.priv", &buf);
+	    appendattvalue(&fdata->attvalues, "size.priv", &buf);
 	    fdata->found |= ATTRIB_SIZE_PRIV;
 	}
     }
@@ -1166,7 +1158,7 @@ static void annotation_get_fromdb(const annotate_cursor_t *cursor,
 	    output_entryatt(cursor, entrypat, "", &empty, fdata);
 	}
 	/* flush any stored attribute-value pairs */
-	output_entryatt(NULL, "", "", NULL, fdata);
+	flush_entryatt(fdata);
     }
 }
 
@@ -1626,8 +1618,8 @@ int annotatemore_fetch(const annotate_scope_t *scope,
         fdata.sizeptr = maxsizeptr; /* pointer to push largest back */
     }
 
-    /* Reset state in output_entryatt() */
-    output_entryatt(NULL, NULL, NULL, NULL, NULL);
+    /* Reset state for output_entryatt() */
+    fdata.sep = "";
 
     /* Build list of attributes to fetch */
     for (i = 0 ; i < attribs->count ; i++)
@@ -1853,7 +1845,7 @@ int annotatemore_fetch(const annotate_scope_t *scope,
     }
 
     /* Flush last cached entry in output_entryatt() */
-    output_entryatt(NULL, "", "", NULL, &fdata);
+    flush_entryatt(&fdata);
 
     /* Free the entry list, if needed */
     while(fdata.entry_list) {
