@@ -573,7 +573,6 @@ static int annotatemore_findall2(const annotate_cursor_t *cursor,
 
 struct fetchdata {
     struct namespace *namespace;
-    struct protstream *pout;
     const char *userid;
     int isadmin;
     struct auth_state *auth_state;
@@ -590,8 +589,6 @@ struct fetchdata {
     const char *orig_mailbox;
     const strarray_t *orig_entry;
     const strarray_t *orig_attribute;
-    int ismetadata;
-    int ismessage;
     int maxsize;
     int *sizeptr;
 
@@ -600,97 +597,20 @@ struct fetchdata {
     char lastname[MAX_MAILBOX_BUFFER];
     char lastentry[MAX_MAILBOX_BUFFER];
     uint32_t lastuid;
-    const char *sep;
+    annotate_fetch_cb_t callback;
+    void *callback_rock;
 };
-
-static void output_attlist(struct protstream *pout, struct attvaluelist *l,
-			   int atoms_flag)
-{
-    int flag = 0;
-
-    assert(l);
-
-    prot_putc('(',pout);
-
-    for ( ; l ; l = l->next) {
-	if (flag) prot_putc(' ', pout);
-	else flag = 1;
-
-	if (atoms_flag)
-	    prot_printastring(pout, l->attrib);
-	else
-	    prot_printstring(pout, l->attrib);
-	prot_putc(' ', pout);
-	prot_printmap(pout, l->value.s, l->value.len);
-    }
-
-    prot_putc(')',pout);
-}
-
-static void output_metalist(struct protstream *pout, struct attvaluelist *l,
-			    const char *entry)
-{
-    int flag = 0;
-    struct buf mentry = BUF_INITIALIZER;
-
-    assert(l);
-
-    prot_putc('(', pout);
-
-    for ( ; l ; l = l->next) {
-	buf_reset(&mentry);
-
-	/* check if it's a value we print... */
-	if (!strcmp(l->attrib, "value.shared"))
-	    buf_appendcstr(&mentry, "/shared");
-	else if (!strcmp(l->attrib, "value.priv"))
-	    buf_appendcstr(&mentry, "/private");
-	else
-	    continue;
-	buf_appendcstr(&mentry, entry);
-	buf_cstring(&mentry);
-
-	if (flag) prot_putc(' ', pout);
-	else flag = 1;
-
-	prot_printastring(pout, mentry.s);
-	prot_putc(' ', pout);
-	prot_printmap(pout, l->value.s, l->value.len);
-    }
-
-    prot_putc(')', pout);
-    buf_free(&mentry);
-}
 
 static void flush_entryatt(struct fetchdata *fdata)
 {
     if (!fdata->attvalues)
 	return;	    /* nothing to flush */
 
-    if (fdata->ismessage) {
-	prot_printf(fdata->pout, "%s", fdata->sep);
-	prot_printastring(fdata->pout, fdata->lastentry);
-	prot_putc(' ', fdata->pout);
-	output_attlist(fdata->pout, fdata->attvalues, /*atoms_flag*/1);
-	fdata->sep = " ";
-    }
-    else if (fdata->ismetadata) {
-	prot_printf(fdata->pout, "* METADATA ");
-	prot_printastring(fdata->pout, fdata->lastname);
-	prot_putc(' ', fdata->pout);
-	output_metalist(fdata->pout, fdata->attvalues, fdata->lastentry);
-	prot_printf(fdata->pout, "\r\n");
-    }
-    else {
-	prot_printf(fdata->pout, "* ANNOTATION ");
-	prot_printastring(fdata->pout, fdata->lastname);
-	prot_putc(' ', fdata->pout);
-	prot_printstring(fdata->pout, fdata->lastentry);
-	prot_putc(' ', fdata->pout);
-	output_attlist(fdata->pout, fdata->attvalues, /*atoms_flag*/0);
-	prot_printf(fdata->pout, "\r\n");
-    }
-
+    fdata->callback(fdata->lastname,
+		    fdata->lastuid,
+		    fdata->lastentry,
+		    fdata->attvalues,
+		    fdata->callback_rock);
     freeattvalues(fdata->attvalues);
     fdata->attvalues = NULL;
 }
@@ -1596,8 +1516,9 @@ static int fetch_cb(char *name, int matchlen,
 int annotatemore_fetch(const annotate_scope_t *scope,
 		       const strarray_t *entries, const strarray_t *attribs,
 		       struct namespace *namespace, int isadmin, const char *userid,
-		       struct auth_state *auth_state, struct protstream *pout,
-		       int ismetadata, int *maxsizeptr)
+		       struct auth_state *auth_state,
+		       annotate_fetch_cb_t callback, void *rock,
+		       int *maxsizeptr)
 {
     int i;
     struct fetchdata fdata;
@@ -1606,20 +1527,16 @@ int annotatemore_fetch(const annotate_scope_t *scope,
     const annotate_entrydesc_t *db_entry;
 
     memset(&fdata, 0, sizeof(struct fetchdata));
-    fdata.pout = pout;
     fdata.namespace = namespace;
     fdata.userid = userid;
     fdata.isadmin = isadmin;
     fdata.auth_state = auth_state;
-    fdata.ismetadata = ismetadata;
-    fdata.ismessage = scope->which == ANNOTATION_SCOPE_MESSAGE;
+    fdata.callback = callback;
+    fdata.callback_rock = rock;
     if (maxsizeptr) {
 	fdata.maxsize = *maxsizeptr; /* copy to check against */
         fdata.sizeptr = maxsizeptr; /* pointer to push largest back */
     }
-
-    /* Reset state for output_entryatt() */
-    fdata.sep = "";
 
     /* Build list of attributes to fetch */
     for (i = 0 ; i < attribs->count ; i++)
