@@ -337,6 +337,7 @@ static int sieve_isactive(const char *sievepath, const char *name)
 }
 
 static int dump_annotations(const char *mailbox __attribute__((unused)),
+			    uint32_t uid  __attribute__((unused)),
 			    const char *entry,
 			    const char *userid,
 			    const struct buf *value, void *rock)
@@ -520,7 +521,7 @@ int dump_mailbox(const char *tag, struct mailbox *mailbox, uint32_t uid_start,
     mbdir = NULL;
 
     /* Dump annotations */
-    annotatemore_findall(mailbox->name, "*", dump_annotations,
+    annotatemore_findall(mailbox->name, 0, "*", dump_annotations,
 			 (void *) pout, NULL);
 
     /* Dump user files if this is an inbox */

@@ -2554,6 +2554,7 @@ static int do_newsgroups(char *name, void *rock)
  * annotatemore_findall() callback function to LIST NEWSGROUPS
  */
 int newsgroups_cb(const char *mailbox,
+		  uint32_t uid __attribute__((unused)),
 		  const char *entry __attribute__((unused)),
 		  const char *userid,
 		  struct annotation_data *attrib, void *rock)
@@ -2676,7 +2677,7 @@ static void cmd_list(char *arg1, char *arg2)
 
 	strcpy(pattern, newsprefix);
 	strcat(pattern, "*");
-	annotatemore_findall(pattern, "/comment",
+	annotatemore_findall(pattern, 0, "/comment",
 			     newsgroups_cb, lrock.wild, NULL);
 
 	prot_printf(nntp_out, ".\r\n");
