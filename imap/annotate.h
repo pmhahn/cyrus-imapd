@@ -167,6 +167,11 @@ int annotatemore_write_entry(const char *mboxname, const char *entry,
  */
 int annotatemore_rename(const char *oldmboxname, const char *newmboxname,
 			const char *olduserid, const char *newuserid);
+/* Handle a message COPY, by copying all the appropriate
+ * per-message annotations */
+int annotate_msg_copy(const char *oldmboxname, uint32_t olduid,
+		      const char *newmboxname, uint32_t newuid,
+		      const char *userid);
 
 /* delete the annotations for 'mboxname' */
 int annotatemore_delete(const char *mboxname);
