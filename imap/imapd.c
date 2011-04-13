@@ -8090,7 +8090,7 @@ static int parse_annotate_fetch_data(const char *tag,
 	/* single attrib */
 	prot_ungetc(c, imapd_in);
 	if (permessage_flag)
-	    c = getqstring(imapd_in, imapd_out, &arg);
+	    c = getastring(imapd_in, imapd_out, &arg);
 	else
 	    c = getqstring(imapd_in, imapd_out, &arg);
 	    if (c == EOF) {
