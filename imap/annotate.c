@@ -1127,8 +1127,6 @@ struct annotate_f_entry_list
     struct annotate_f_entry_list *next;
 };
 
-/* TODO: the entire /flags hierarchy is reserved for future use, we
- * should prevent it being used */
 /* TODO: need to handle /<section-part>/ somehow */
 static const annotate_entrydesc_t message_builtin_entries[] =
 {
@@ -2846,6 +2844,14 @@ static void init_annotation_definitions(void)
 	    ptrarray_append(&mailbox_entries, ae);
 	    break;
 	case ANNOTATION_SCOPE_MESSAGE:
+	    if (!strncmp(ae->name, "/flags/", 7)) {
+		/* RFC5257 reserves the /flags/ hierarchy for future use */
+		syslog(LOG_WARNING, "annotation definitions file contains "
+				    "a message annotation in /flags/, ignoring");
+		free((char *)ae->name);
+		free(ae);
+		continue;
+	    }
 	    ptrarray_append(&message_entries, ae);
 	    break;
 	}
