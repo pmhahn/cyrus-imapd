@@ -10530,18 +10530,13 @@ int getsortcriteria(char *tag, struct sortcrit **sortcrit)
 	    if (c != ' ') goto missingarg;
 	    (*sortcrit)[n].args.annot.entry = xstrdup(criteria.s);
 	    c = getastring(imapd_in, imapd_out, &criteria);
-	    if (c == EOF) {
-		free((*sortcrit)[n].args.annot.entry);
-		goto missingarg;
-	    }
+	    if (c == EOF) goto missingarg;
 	    if (!strcmp(criteria.s, "value.shared"))
 		userid = "";
 	    else if (!strcmp(criteria.s, "value.priv"))
 		userid = imapd_userid;
-	    else {
-		free((*sortcrit)[n].args.annot.entry);
+	    else
 		goto missingarg;
-	    }
 	    (*sortcrit)[n].args.annot.userid = xstrdup(userid);
 	}
 	else if (!strcmp(criteria.s, "modseq"))
