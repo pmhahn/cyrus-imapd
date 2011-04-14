@@ -8413,6 +8413,7 @@ static int parse_metadata_store_data(const char *tag,
 			"%s BAD Missing metadata entry\r\n", tag);
 	    goto baddata;
 	}
+	lcase(entry.s);
 
 	/* get value */
 	c2 = prot_getc(imapd_in);
@@ -8427,12 +8428,11 @@ static int parse_metadata_store_data(const char *tag,
 	if (c2 == 'N' && value.len == 3 && !strcmp(value.s, "NIL"))
 	    buf_free(&value);
 
-	/* TODO: this is bogus, we should check for /private/ */
-	if (!strncmp(entry.s, "/private", 8)) {
+	if (!strncmp(entry.s, "/private/", 9)) {
 	    att = "value.priv";
 	    name = entry.s + 8;
 	}
-	else if (!strncmp(entry.s, "/shared", 7)) {
+	else if (!strncmp(entry.s, "/shared/", 8)) {
 	    att = "value.shared";
 	    name = entry.s + 7;
 	}
@@ -8674,17 +8674,18 @@ static void cmd_getmetadata(const char *tag, char *mboxpat)
     }
 
     for (i = 0 ; i < real_entries->count ; i++) {
-	const char *ent = real_entries->data[i];
+	char *ent = real_entries->data[i];
 	char entry[MAX_MAILBOX_NAME];
+
+	lcase(ent);
 	/* there's no way to perfect this - unfortunately - the old style
 	 * syntax doesn't support everything.  XXX - will be nice to get
 	 * rid of this... */
-	/* TODO: this is bogus, we should compare against /private/ */
-	if (!strncmp(ent, "/private", 8)) {
+	if (!strncmp(ent, "/private/", 9)) {
 	    strncpy(entry, ent + 8, MAX_MAILBOX_NAME);
 	    have_private = 1;
 	}
-	else if (!strncmp(ent, "/shared", 7)) {
+	else if (!strncmp(ent, "/shared/", 8)) {
 	    strncpy(entry, ent + 7, MAX_MAILBOX_NAME);
 	    have_shared = 1;
 	}
