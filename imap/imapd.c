@@ -8328,7 +8328,7 @@ static int parse_annotate_store_data(const char *tag,
 	    }
 	    c2 = prot_getc(imapd_in);
 	    prot_ungetc(c2, imapd_in);
-	    c = getnstring(imapd_in, imapd_out, &value);
+	    c = getbnstring(imapd_in, imapd_out, &value);
 	    if (c == EOF) {
 		prot_printf(imapd_out,
 			    "%s BAD Missing annotation value\r\n", tag);
@@ -8418,7 +8418,7 @@ static int parse_metadata_store_data(const char *tag,
 	/* get value */
 	c2 = prot_getc(imapd_in);
 	prot_ungetc(c2, imapd_in);
-	c = getnstring(imapd_in, imapd_out, &value);
+	c = getbnstring(imapd_in, imapd_out, &value);
 	if (c == EOF) {
 	    prot_printf(imapd_out,
 			"%s BAD Missing metadata value\r\n", tag);
