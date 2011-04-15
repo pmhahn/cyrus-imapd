@@ -1372,7 +1372,8 @@ static int do_mailbox(struct dlist *kin)
     if (r == IMAP_MAILBOX_NONEXISTENT) {
 	r = mboxlist_createsync(mboxname, 0, partition,
 				sync_userid, sync_authstate,
-				options, uidvalidity, acl,
+				options, uidvalidity,
+				highestmodseq, acl,
 				uniqueid, &mailbox);
 	/* set a highestmodseq of 0 so ALL changes are future
 	 * changes and get applied */
