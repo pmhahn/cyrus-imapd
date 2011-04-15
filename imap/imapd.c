@@ -8428,11 +8428,13 @@ static int parse_metadata_store_data(const char *tag,
 	if (c2 == 'N' && value.len == 3 && !strcmp(value.s, "NIL"))
 	    buf_free(&value);
 
-	if (!strncmp(entry.s, "/private/", 9)) {
+	if (!strncmp(entry.s, "/private", 8) &&
+	    (entry.s[8] == '\0' || entry.s[8] == '/')) {
 	    att = "value.priv";
 	    name = entry.s + 8;
 	}
-	else if (!strncmp(entry.s, "/shared/", 8)) {
+	else if (!strncmp(entry.s, "/shared", 7) &&
+	         (entry.s[7] == '\0' || entry.s[7] == '/')) {
 	    att = "value.shared";
 	    name = entry.s + 7;
 	}
@@ -8681,11 +8683,13 @@ static void cmd_getmetadata(const char *tag, char *mboxpat)
 	/* there's no way to perfect this - unfortunately - the old style
 	 * syntax doesn't support everything.  XXX - will be nice to get
 	 * rid of this... */
-	if (!strncmp(ent, "/private/", 9)) {
+	if (!strncmp(ent, "/private", 8) &&
+	    (ent[8] == '\0' || ent[8] == '/')) {
 	    strncpy(entry, ent + 8, MAX_MAILBOX_NAME);
 	    have_private = 1;
 	}
-	else if (!strncmp(ent, "/shared/", 8)) {
+	else if (!strncmp(ent, "/shared", 7) &&
+	         (ent[7] == '\0' || ent[7] == '/')) {
 	    strncpy(entry, ent + 7, MAX_MAILBOX_NAME);
 	    have_shared = 1;
 	}
