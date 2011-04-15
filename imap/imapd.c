@@ -8695,7 +8695,7 @@ static void cmd_getmetadata(const char *tag, char *mboxpat)
 	}
 	else {
 	    prot_printf(imapd_out,
-			"%s BAD entry must /private or /shared\r\n",
+			"%s BAD entry must begin with /shared or /private\r\n",
 			tag);
 	    goto freeargs;
 	}
