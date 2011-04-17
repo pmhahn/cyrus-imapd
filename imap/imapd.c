@@ -2627,7 +2627,7 @@ void cmd_id(char *tag)
 		error = 1;
 		break;
 	    }
-	    if (strlen(arg.s) > MAXIDVALUELEN) {
+	    if (arg.len > MAXIDVALUELEN) {
 		prot_printf(imapd_out,
 			    "%s BAD value longer than %u octets in Id\r\n",
 			    tag, MAXIDVALUELEN);
@@ -8097,7 +8097,7 @@ static int parse_annotate_fetch_data(const char *tag,
 	    if (permessage_flag)
 		c = getastring(imapd_in, imapd_out, &arg);
 	    else
-		c = getnstring(imapd_in, imapd_out, &arg);
+		c = getqstring(imapd_in, imapd_out, &arg);
 	    if (c == EOF) {
 		prot_printf(imapd_out,
 			    "%s BAD Missing annotation attribute(s)\r\n", tag);
@@ -8262,7 +8262,7 @@ static int parse_annotate_store_data(const char *tag,
 				     int permessage_flag,
 				     struct entryattlist **entryatts)
 {
-    int c, c2, islist = 0;
+    int c, islist = 0;
     static struct buf entry, attrib, value;
     struct attvaluelist *attvalues = NULL;
 
@@ -8326,18 +8326,12 @@ static int parse_annotate_store_data(const char *tag,
 			    "%s BAD Missing annotation value\r\n", tag);
 		goto baddata;
 	    }
-	    c2 = prot_getc(imapd_in);
-	    prot_ungetc(c2, imapd_in);
 	    c = getbnstring(imapd_in, imapd_out, &value);
 	    if (c == EOF) {
 		prot_printf(imapd_out,
 			    "%s BAD Missing annotation value\r\n", tag);
 		goto baddata;
 	    }
-
-	    /* detect an actual NIL, rather than e.g. a quoted "NIL" */
-	    if (c2 == 'N' && value.len == 3 && !strcmp(value.s, "NIL"))
-		buf_free(&value);
 
 	    /* add the attrib-value pair to the list */
 	    appendattvalue(&attvalues, attrib.s, &value);
@@ -8388,7 +8382,7 @@ static int parse_annotate_store_data(const char *tag,
 static int parse_metadata_store_data(const char *tag,
 				     struct entryattlist **entryatts)
 {
-    int c, c2;
+    int c;
     const char *name;
     const char *att;
     static struct buf entry, value;
@@ -8416,17 +8410,12 @@ static int parse_metadata_store_data(const char *tag,
 	lcase(entry.s);
 
 	/* get value */
-	c2 = prot_getc(imapd_in);
-	prot_ungetc(c2, imapd_in);
 	c = getbnstring(imapd_in, imapd_out, &value);
 	if (c == EOF) {
 	    prot_printf(imapd_out,
 			"%s BAD Missing metadata value\r\n", tag);
 	    goto baddata;
 	}
-	/* detect an actual NIL, rather than e.g. a quoted "NIL" */
-	if (c2 == 'N' && value.len == 3 && !strcmp(value.s, "NIL"))
-	    buf_free(&value);
 
 	if (!strncmp(entry.s, "/private", 8) &&
 	    (entry.s[8] == '\0' || entry.s[8] == '/')) {
@@ -8859,7 +8848,6 @@ static int parse_search_annotation(int c, struct searchannot **lp)
     struct buf entry = BUF_INITIALIZER;
     struct buf attrib = BUF_INITIALIZER;
     struct buf value = BUF_INITIALIZER;
-    int c2;
 
     if (c != ' ')
 	return EOF;
@@ -8885,13 +8873,8 @@ static int parse_search_annotation(int c, struct searchannot **lp)
     }
 
     /* parse the value */
-    c2 = prot_getc(imapd_in);
-    prot_ungetc(c2, imapd_in);
-    c = getnstring(imapd_in, imapd_out, &value);
-    /* detect an actual NIL, rather than e.g. a quoted "NIL" */
-    if (c2 == 'N' && value.len == 3 && !strcmp(value.s, "NIL"))
-	buf_free(&value);
-    else if (c == EOF)
+    c = getbnstring(imapd_in, imapd_out, &value);
+    if (c == EOF)
 	goto out;
 
     sa = xzmalloc(sizeof(*sa));
