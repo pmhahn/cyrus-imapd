@@ -1464,11 +1464,31 @@ const struct annotate_attrib annotation_attributes[] =
     { NULL, 0 }
 };
 
+static void _annotate_fetch_entries(struct fetchdata *fdata,
+				    const annotate_cursor_t *cursor,
+				    int proxy_check)
+{
+    struct annotate_f_entry_list *ee;
+
+    /* Loop through the list of provided entries to get */
+    for (ee = fdata->entry_list; ee; ee = ee->next) {
+
+	if (proxy_check) {
+	    if (ee->entry->proxytype == BACKEND_ONLY &&
+	        proxy_fetch_func &&
+		!config_getstring(IMAPOPT_PROXYSERVERS))
+		continue;
+	}
+
+	ee->entry->get(cursor, ee->entry->name, fdata,
+		       (ee->entry->rock ? ee->entry->rock : (void*) ee->entrypat));
+    }
+}
+
 static int fetch_cb(char *name, int matchlen,
 		    int maycreate __attribute__((unused)), void* rock)
 {
     struct fetchdata *fdata = (struct fetchdata *) rock;
-    struct annotate_f_entry_list *entries_ptr;
     static char lastname[MAX_MAILBOX_BUFFER];
     static int sawuser = 0;
     int c;
@@ -1524,17 +1544,7 @@ static int fetch_cb(char *name, int matchlen,
 	return 0;
     cursor.mbentry = mbentry;
 
-    /* Loop through the list of provided entries to get */
-    for (entries_ptr = fdata->entry_list;
-	 entries_ptr;
-	 entries_ptr = entries_ptr->next) {
-
-	entries_ptr->entry->get(&cursor,
-				entries_ptr->entry->name, fdata,
-				(entries_ptr->entry->rock ?
-				entries_ptr->entry->rock :
-				(void*) entries_ptr->entrypat));
-    }
+    _annotate_fetch_entries(fdata, &cursor, /*proxy_check*/0);
 
     if (proxy_fetch_func && fdata->orig_entry && mbentry->server &&
 	!hash_lookup(mbentry->server, &(fdata->server_table))) {
@@ -1689,7 +1699,6 @@ int annotatemore_fetch(const annotate_scope_t *scope,
     if (scope->which == ANNOTATION_SCOPE_SERVER) {
 
 	if (fdata.entry_list) {
-	    struct annotate_f_entry_list *entries_ptr;
 	    annotate_cursor_t cursor;
 
 	    memset(&cursor, 0, sizeof(cursor));
@@ -1698,20 +1707,7 @@ int annotatemore_fetch(const annotate_scope_t *scope,
 	    /* xxx better way to determine a size for this table? */
 	    construct_hash_table(&fdata.entry_table, 100, 1);
 
-	    /* Loop through the list of provided entries to get */
-	    for (entries_ptr = fdata.entry_list;
-		 entries_ptr;
-		 entries_ptr = entries_ptr->next) {
-	
-		if (!(entries_ptr->entry->proxytype == BACKEND_ONLY &&
-		      proxy_fetch_func && !config_getstring(IMAPOPT_PROXYSERVERS))) {
-		entries_ptr->entry->get(&cursor, entries_ptr->entry->name,
-					&fdata,
-					(entries_ptr->entry->rock ?
-					 entries_ptr->entry->rock :
-					 (void*) entries_ptr->entrypat));
-		}
-	    }
+	    _annotate_fetch_entries(&fdata, &cursor, /*proxy_check*/1);
 
 	    free_hash_table(&fdata.entry_table, NULL);
 	}
@@ -1770,24 +1766,8 @@ int annotatemore_fetch(const annotate_scope_t *scope,
 // 		construct_hash_table(&fdata.server_table, 10, 1);
 // 	    }
 
-	    while ((cursor.uid = seqset_getnext(scope->messages))) {
-		struct annotate_f_entry_list *entries_ptr;
-
-		/* Loop through the list of provided entries to get */
-		for (entries_ptr = fdata.entry_list;
-		     entries_ptr;
-		     entries_ptr = entries_ptr->next) {
-
-// 		    if (!(entries_ptr->entry->proxytype == BACKEND_ONLY &&
-// 			  proxy_fetch_func && !config_getstring(IMAPOPT_PROXYSERVERS))) {
-			entries_ptr->entry->get(&cursor, entries_ptr->entry->name,
-					        &fdata,
-					        (entries_ptr->entry->rock ?
-					         entries_ptr->entry->rock :
-					         (void*) entries_ptr->entrypat));
-// 		    }
-		}
-	    }
+	    while ((cursor.uid = seqset_getnext(scope->messages)))
+		_annotate_fetch_entries(&fdata, &cursor, /*proxy_check*/0);
 
 	    free_hash_table(&fdata.entry_table, NULL);
 
