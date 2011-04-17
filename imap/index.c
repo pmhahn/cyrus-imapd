@@ -2727,6 +2727,7 @@ static int index_fetchannotations(struct index_state *state,
     memset(&scope, 0, sizeof(scope));
     scope.which = ANNOTATION_SCOPE_MESSAGE;
     scope.mailbox = state->mailbox->name;
+    scope.acl = state->mailbox->acl;
     scope.messages = seqset_init(state->last_uid, SEQ_SPARSE);
     seqset_add(scope.messages, state->map[msgno-1].record.uid, 1);
     seqset_rewind(scope.messages);
@@ -3525,6 +3526,7 @@ static int _search_annotation(struct index_state *state,
     memset(&scope, 0, sizeof(scope));
     scope.which = ANNOTATION_SCOPE_MESSAGE;
     scope.mailbox = state->mailbox->name;
+    scope.acl = state->mailbox->acl;
     scope.messages = seqset_init(state->last_uid, SEQ_SPARSE);
     seqset_add(scope.messages, state->map[msgno-1].record.uid, 1);
     seqset_rewind(scope.messages);

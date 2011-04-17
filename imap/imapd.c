@@ -5075,6 +5075,7 @@ notflagsdammit:
 	memset(&scope, 0, sizeof(scope));
 	scope.which = ANNOTATION_SCOPE_MESSAGE;
 	scope.mailbox = imapd_index->mailbox->name;
+	scope.acl = imapd_index->mailbox->acl;
 	index_parse_sequence_as_uids(imapd_index,
 				     &scope.messages,
 				     sequence,

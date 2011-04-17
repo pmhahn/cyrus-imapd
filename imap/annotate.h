@@ -88,6 +88,7 @@ struct annotate_scope
     const char *mailbox;	/* external mailbox pattern if _MAILBOX
 				 * or external mailbox name if _MESSAGE */
     struct seqset *messages;	/* UIDs for _MESSAGE */
+    const char *acl;		/* for _MESSAGE */
 };
 
 /* String List Management */

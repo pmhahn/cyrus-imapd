@@ -90,6 +90,7 @@ struct annotate_cursor
     const char *ext_mboxname;	/* for _MAILBOX */
     struct mboxlist_entry *mbentry; /* for _MAILBOX */
     unsigned int uid;		/* for _MESSAGE */
+    const char *acl;		/* for _MESSAGE */
 };
 
 enum {
@@ -1755,6 +1756,7 @@ int annotatemore_fetch(const annotate_scope_t *scope,
 	    memset(&cursor, 0, sizeof(cursor));
 	    cursor.which = ANNOTATION_SCOPE_MESSAGE;
 	    cursor.int_mboxname = scope->mailbox;
+	    cursor.acl = scope->acl;
 
 	    /* xxx better way to determine a size for this table? */
 	    construct_hash_table(&fdata.entry_table, 100, 1);
@@ -2485,6 +2487,7 @@ int annotatemore_store(const annotate_scope_t *scope,
 	memset(&cursor, 0, sizeof(cursor));
 	cursor.which = ANNOTATION_SCOPE_MESSAGE;
 	cursor.int_mboxname = scope->mailbox;
+	cursor.acl = scope->acl;
 
 // 	if (proxy_store_func) {
 // 	    /* xxx better way to determine a size for this table? */
