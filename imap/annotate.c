@@ -1044,7 +1044,6 @@ static void annotation_get_specialuse(const annotate_cursor_t *cursor,
 	buf_appendcstr(&value, cursor->mbentry->specialuse);
 
     output_entryatt(cursor, entry, "", &value, fdata);
-out:
     buf_free(&value);
 }
 
@@ -2079,8 +2078,8 @@ static int _annotate_may_store(const struct storedata *sdata,
 			       const annotate_entrydesc_t *desc)
 {
     unsigned int my_rights;
-    unsigned int needed;
-    const char *acl;
+    unsigned int needed = 0;
+    const char *acl = NULL;
 
     /* Admins can do anything */
     if (sdata->isadmin)
