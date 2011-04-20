@@ -105,6 +105,8 @@ void freeattvalues(struct attvaluelist *l);
 /* Entry Management */
 void appendentryatt(struct entryattlist **l, const char *entry,
 		    struct attvaluelist *attvalues);
+void setentryatt(struct entryattlist **l, const char *entry,
+		 const char *attrib, const struct buf *value);
 void freeentryatts(struct entryattlist *l);
 
 /* name of the annotation database */
