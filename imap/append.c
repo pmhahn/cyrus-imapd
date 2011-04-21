@@ -847,7 +847,10 @@ int append_fromstage(struct appendstate *as, struct body **body,
 	fclose(destfile);
     }
     if (!r && config_getstring(IMAPOPT_ANNOTATION_CALLOUT)) {
-	newflags = strarray_dup(flags);
+	if (flags)
+	    newflags = strarray_dup(flags);
+	else
+	    newflags = strarray_new();
 	flags = newflags;
 	r = callout_run(fname, *body, &annotations, newflags);
 	if (r) {
