@@ -269,6 +269,16 @@ void appendattvalue(struct attvaluelist **l,
 }
 
 /*
+ * Duplicate the attvaluelist @src to @dst.
+ */
+void dupattvalues(struct attvaluelist **dst,
+		  const struct attvaluelist *src)
+{
+    for ( ; src ; src = src->next)
+	appendattvalue(dst, src->attrib, &src->value);
+}
+
+/*
  * Free the attvaluelist 'l'
  */
 void freeattvalues(struct attvaluelist *l)
@@ -279,6 +289,7 @@ void freeattvalues(struct attvaluelist *l)
 	n = l->next;
 	free(l->attrib);
 	buf_free(&l->value);
+	free(l);
 	l = n;
     }
 }
@@ -327,6 +338,18 @@ void setentryatt(struct entryattlist **l, const char *entry,
     }
 }
 
+/*
+ * Duplicate the entryattlist @src to @dst.
+ */
+void dupentryatt(struct entryattlist **dst,
+		 const struct entryattlist *src)
+{
+    for ( ; src ; src = src->next) {
+	struct attvaluelist *attvalues = NULL;
+	dupattvalues(&attvalues, src->attvalues);
+	appendentryatt(dst, src->entry, attvalues);
+    }
+}
 
 /*
  * Free the entryattlist 'l'
@@ -338,7 +361,8 @@ void freeentryatts(struct entryattlist *l)
     while (l) {
 	n = l->next;
 	free(l->entry);
-	if (l->attvalues) freeattvalues(l->attvalues);
+	freeattvalues(l->attvalues);
+	free(l);
 	l = n;
     }
 }

@@ -761,6 +761,7 @@ int append_fromstage(struct appendstate *as, struct body **body,
     int i, r;
     int userflag;
     strarray_t *newflags = NULL;
+    struct entryattlist *newannotations = NULL;
 
     /* for staging */
     char stagefile[MAX_MAILBOX_PATH+1];
@@ -851,12 +852,14 @@ int append_fromstage(struct appendstate *as, struct body **body,
 	    newflags = strarray_dup(flags);
 	else
 	    newflags = strarray_new();
-	flags = newflags;
-	r = callout_run(fname, *body, &annotations, newflags);
+	dupentryatt(&newannotations, annotations);
+	r = callout_run(fname, *body, &newannotations, newflags);
 	if (r) {
 	    syslog(LOG_ERR, "Annotation callout failed, ignoring\n");
 	    r = 0;
 	}
+	flags = newflags;
+	annotations = newannotations;
     }
     if (!r && annotations) {
 	annotate_scope_t scope;
@@ -919,6 +922,7 @@ int append_fromstage(struct appendstate *as, struct body **body,
 out:
     if (newflags)
 	strarray_free(newflags);
+    freeentryatts(newannotations);
     if (r) {
 	append_abort(as);
 	return r;
