@@ -761,6 +761,7 @@ int append_fromstage(struct appendstate *as, struct body **body,
     int i, r;
     int userflag;
     strarray_t *newflags = NULL;
+    struct entryattlist *origannotations = annotations;
     struct entryattlist *newannotations = NULL;
 
     /* for staging */
@@ -879,6 +880,12 @@ int append_fromstage(struct appendstate *as, struct body **body,
 			       as->auth_state);
 
 	seqset_free(scope.messages);
+	if (r && !origannotations) {
+	    /* Nasty hack to log & ignore failed annotations from callout */
+	    syslog(LOG_ERR, "Setting annnotations failed (%s), "
+			    "ignoring\n", error_message(r));
+	    r = 0;
+	}
     }
     if (r)
 	goto out;
