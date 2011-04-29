@@ -2557,7 +2557,7 @@ int newsgroups_cb(const char *mailbox,
 		  uint32_t uid __attribute__((unused)),
 		  const char *entry __attribute__((unused)),
 		  const char *userid,
-		  struct annotation_data *attrib, void *rock)
+		  const struct buf *value, void *rock)
 {
     struct wildmat *wild = (struct wildmat *) rock;
 
@@ -2577,7 +2577,7 @@ int newsgroups_cb(const char *mailbox,
     if (userid[0]) return 0;
 
     prot_printf(nntp_out, "%s\t%s\r\n", mailbox+strlen(newsprefix),
-		attrib->value);
+		value->s);
 
     return 0;
 }
@@ -3782,7 +3782,7 @@ static void news2mail(message_data_t *msg)
 	    strarray_append(&smbuf, attrib.s);
 
 	    if (to[0]) strlcat(to, ", ", sizeof(to));
-	    strlcat(to, attrib.value, sizeof(to));
+	    strlcat(to, attrib.s, sizeof(to));
 	}
     }
     buf_free(&attrib);
