@@ -4901,6 +4901,7 @@ void cmd_store(char *tag, char *sequence, int usinguid)
     /* local mailbox */
     memset(&storeargs, 0, sizeof storeargs);
     storeargs.unchangedsince = ~0ULL;
+    storeargs.usinguid = usinguid;
 
     c = prot_getc(imapd_in);
     if (c == '(') {
@@ -5089,7 +5090,7 @@ notflagsdammit:
 	seqset_free(scope.messages);
     }
     else {
-	r = index_store(imapd_index, sequence, usinguid, &storeargs, &flags);
+	r = index_store(imapd_index, sequence, &storeargs, &flags);
     }
 
     /* format the MODIFIED response code */
