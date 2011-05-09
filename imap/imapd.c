@@ -4970,13 +4970,13 @@ void cmd_store(char *tag, char *sequence, int usinguid)
     }
     
     if (!strcmp(operation.s, "+flags")) {
-	storeargs.operation = STORE_ADD;
+	storeargs.operation = STORE_ADD_FLAGS;
     }
     else if (!strcmp(operation.s, "-flags")) {
-	storeargs.operation = STORE_REMOVE;
+	storeargs.operation = STORE_REMOVE_FLAGS;
     }
     else if (!strcmp(operation.s, "flags")) {
-	storeargs.operation = STORE_REPLACE;
+	storeargs.operation = STORE_REPLACE_FLAGS;
     }
     else if (!strcmp(operation.s, "annotation")) {
 	storeargs.operation = STORE_ANNOTATION;

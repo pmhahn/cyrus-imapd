@@ -3367,10 +3367,10 @@ static int index_storeflag(struct index_state *state, uint32_t msgno,
     if (state->myrights & ACL_SETSEEN) {
 	old = im->isseen ? 1 : 0;
 	new = old;
-	if (storeargs->operation == STORE_REPLACE)
+	if (storeargs->operation == STORE_REPLACE_FLAGS)
 	    new = storeargs->seen ? 1 : 0;
 	else if (storeargs->seen)
-	    new = (storeargs->operation == STORE_ADD) ? 1 : 0;
+	    new = (storeargs->operation == STORE_ADD_FLAGS) ? 1 : 0;
 
 	if (new != old) {
 	    state->numunseen += (old - new);
@@ -3383,7 +3383,7 @@ static int index_storeflag(struct index_state *state, uint32_t msgno,
     old = im->record.system_flags;
     new = storeargs->system_flags;
 
-    if (storeargs->operation == STORE_REPLACE) {
+    if (storeargs->operation == STORE_REPLACE_FLAGS) {
 	if (!(state->myrights & ACL_WRITE)) {
 	    /* ACL_DELETE handled in index_store() */
 	    if ((old & FLAG_DELETED) != (new & FLAG_DELETED)) {
@@ -3412,7 +3412,7 @@ static int index_storeflag(struct index_state *state, uint32_t msgno,
 	    }
 	}
     }
-    else if (storeargs->operation == STORE_ADD) {
+    else if (storeargs->operation == STORE_ADD_FLAGS) {
 	if (~old & new) {
 	    dirty++;
 	    im->record.system_flags = old | new;
@@ -3424,7 +3424,7 @@ static int index_storeflag(struct index_state *state, uint32_t msgno,
 	    }
 	}
     }
-    else { /* STORE_REMOVE */
+    else { /* STORE_REMOVE_FLAGS */
 	if (old & new) {
 	    dirty++;
 	    im->record.system_flags &= ~storeargs->system_flags;

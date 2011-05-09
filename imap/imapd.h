@@ -164,10 +164,10 @@ struct storeargs {
 
 /* values for operation */
 enum {
-    STORE_ADD = 1,
-    STORE_REMOVE = 2,
-    STORE_REPLACE = 3,
-    STORE_ANNOTATION = 4
+    STORE_ADD_FLAGS = 1,
+    STORE_REMOVE_FLAGS,
+    STORE_REPLACE_FLAGS,
+    STORE_ANNOTATION
 };
 
 struct searchannot {
