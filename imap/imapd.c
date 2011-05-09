@@ -4885,6 +4885,7 @@ void cmd_store(char *tag, char *sequence, int usinguid)
     strarray_t flags = STRARRAY_INITIALIZER;
     int flagsparsed = 0, inlist = 0;
     struct entryattlist *entryatts = NULL;
+    char *modified = NULL;
     int r;
 
     if (backend_current) {
@@ -5091,17 +5092,31 @@ notflagsdammit:
 	r = index_store(imapd_index, sequence, usinguid, &storeargs, &flags);
     }
 
-    if (r) {
-	prot_printf(imapd_out, "%s NO %s\r\n", tag, error_message(r));
+    /* format the MODIFIED response code */
+    if (storeargs.modified) {
+	char *seqstr = seqset_cstring(storeargs.modified);
+	assert(seqstr);
+	modified = strconcat("[MODIFIED ", seqstr, "] ", (char *)NULL);
+	free(seqstr);
     }
     else {
-	prot_printf(imapd_out, "%s OK %s\r\n", tag,
-		    error_message(IMAP_OK_COMPLETED));
+	modified = xstrdup("");
+    }
+
+    if (r) {
+	prot_printf(imapd_out, "%s NO %s%s\r\n",
+		    tag, modified, error_message(r));
+    }
+    else {
+	prot_printf(imapd_out, "%s OK %s%s\r\n",
+		    tag, modified, error_message(IMAP_OK_COMPLETED));
     }
 
  freeflags:
     if (entryatts) freeentryatts(entryatts);
     strarray_fini(&flags);
+    seqset_free(storeargs.modified);
+    free(modified);
 }
 
 void cmd_search(char *tag, int usinguid)
