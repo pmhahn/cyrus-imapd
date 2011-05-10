@@ -4883,7 +4883,6 @@ void cmd_store(char *tag, char *sequence, int usinguid)
     static struct buf operation, flagname;
     int len, c;
     int flagsparsed = 0, inlist = 0;
-    struct entryattlist *entryatts = NULL;
     char *modified = NULL;
     int r;
 
@@ -4984,11 +4983,15 @@ void cmd_store(char *tag, char *sequence, int usinguid)
 	storeargs.silent = 1;
 
 	c = parse_annotate_store_data(tag, /*permessage_flag*/1,
-				      &entryatts);
+				      &storeargs.entryatts);
 	if (c == EOF) {
 	    eatline(imapd_in, c);
 	    goto freeflags;
 	}
+	storeargs.namespace = &imapd_namespace;
+	storeargs.isadmin = imapd_userisadmin;
+	storeargs.userid = imapd_userid;
+	storeargs.authstate = imapd_authstate;
 	goto notflagsdammit;
     }
     else {
@@ -5072,26 +5075,7 @@ notflagsdammit:
 		    index_highestmodseq(imapd_index));
     }
 
-    if (storeargs.operation == STORE_ANNOTATION) {
-	annotate_scope_t scope;
-	memset(&scope, 0, sizeof(scope));
-	scope.which = ANNOTATION_SCOPE_MESSAGE;
-	scope.mailbox = imapd_index->mailbox->name;
-	scope.acl = imapd_index->mailbox->acl;
-	index_parse_sequence_as_uids(imapd_index,
-				     &scope.messages,
-				     sequence,
-				     usinguid);
-
-	r = annotatemore_store(&scope,
-			       entryatts, &imapd_namespace, imapd_userisadmin,
-			       imapd_userid, imapd_authstate);
-
-	seqset_free(scope.messages);
-    }
-    else {
-	r = index_store(imapd_index, sequence, &storeargs);
-    }
+    r = index_store(imapd_index, sequence, &storeargs);
 
     /* format the MODIFIED response code */
     if (storeargs.modified) {
@@ -5114,7 +5098,7 @@ notflagsdammit:
     }
 
  freeflags:
-    if (entryatts) freeentryatts(entryatts);
+    freeentryatts(storeargs.entryatts);
     strarray_fini(&storeargs.flags);
     seqset_free(storeargs.modified);
     free(modified);

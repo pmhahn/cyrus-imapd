@@ -1806,8 +1806,8 @@ int annotatemore_fetch(const annotate_scope_t *scope,
 // 		construct_hash_table(&fdata.server_table, 10, 1);
 // 	    }
 
-	    while ((cursor.uid = seqset_getnext(scope->messages)))
-		_annotate_fetch_entries(&fdata, &cursor, /*proxy_check*/0);
+	    cursor.uid = scope->uid;
+	    _annotate_fetch_entries(&fdata, &cursor, /*proxy_check*/0);
 
 	    free_hash_table(&fdata.entry_table, NULL);
 
@@ -2415,7 +2415,7 @@ int annotatemore_store(const annotate_scope_t *scope,
 		if (r)
 		    goto cleanup;
 		if (nentry) {
-		    buf_move(&nentry->shared, &av->value);
+		    buf_init_ro(&nentry->shared, av->value.s, av->value.len);
 		    nentry->have_shared = 1;
 		}
 	    }
@@ -2435,7 +2435,7 @@ int annotatemore_store(const annotate_scope_t *scope,
 		if (r)
 		    goto cleanup;
 		if (nentry) {
-		    buf_move(&nentry->priv, &av->value);
+		    buf_init_ro(&nentry->priv, av->value.s, av->value.len);
 		    nentry->have_priv = 1;
 		}
 	    }
@@ -2514,11 +2514,8 @@ int annotatemore_store(const annotate_scope_t *scope,
 // 	    construct_hash_table(&sdata.server_table, 10, 1);
 // 	}
 
-	while ((cursor.uid = seqset_getnext(scope->messages))) {
-	    r = _annotate_store_entries(&sdata, &cursor);
-	    if (r)
-		break;
-	}
+	cursor.uid = scope->uid;
+	r = _annotate_store_entries(&sdata, &cursor);
 
 	if (!r) sync_log_annotation("");
 

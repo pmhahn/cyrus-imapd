@@ -87,7 +87,7 @@ struct annotate_scope
     int which;			/* ANNOTATION_SCOPE_* */
     const char *mailbox;	/* external mailbox pattern if _MAILBOX
 				 * or external mailbox name if _MESSAGE */
-    struct seqset *messages;	/* UIDs for _MESSAGE */
+    unsigned int uid;		/* for _MESSAGE */
     const char *acl;		/* for _MESSAGE */
 };
 

@@ -868,9 +868,7 @@ int append_fromstage(struct appendstate *as, struct body **body,
 	scope.which = ANNOTATION_SCOPE_MESSAGE;
 	scope.mailbox = as->mailbox->name;
 	scope.acl = as->mailbox->acl;
-	scope.messages = seqset_init(record.uid, SEQ_SPARSE);
-	seqset_add(scope.messages, record.uid, 1);
-	seqset_rewind(scope.messages);
+	scope.uid = record.uid;
 
 	r = annotatemore_store(&scope,
 			       annotations,
@@ -879,7 +877,6 @@ int append_fromstage(struct appendstate *as, struct body **body,
 			       as->userid,
 			       as->auth_state);
 
-	seqset_free(scope.messages);
 	if (r && !origannotations) {
 	    /* Nasty hack to log & ignore failed annotations from callout */
 	    syslog(LOG_ERR, "Setting annnotations failed (%s), "

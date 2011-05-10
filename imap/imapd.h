@@ -148,10 +148,17 @@ struct storeargs {
     modseq_t unchangedsince; /* unchanged since modseq, or ULLONG_MAX */
     int silent;
     int seen;
+    /* for STORE_*_FLAGS */
     bit32 system_flags;
     /* Note that we must pass the user flags as names because the
      * lookup of user flag names must proceed under the index lock */
     strarray_t flags;
+    /* for STORE_ANNOTATION */
+    struct entryattlist *entryatts;
+    struct namespace *namespace;
+    int isadmin;
+    const char *userid;
+    struct auth_state *authstate;
     /* private to index.c */
     bit32 user_flags[MAX_USER_FLAGS/32];
     time_t update_time;

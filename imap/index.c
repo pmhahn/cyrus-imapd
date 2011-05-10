@@ -141,6 +141,8 @@ static int index_copysetup(struct index_state *state, uint32_t msgno,
 			   struct copyargs *copyargs, int is_same_user);
 static int index_storeflag(struct index_state *state, uint32_t msgno,
 			   struct storeargs *storeargs);
+static int index_store_annotation(struct index_state *state, uint32_t msgno,
+			   struct storeargs *storeargs);
 static int index_fetchreply(struct index_state *state, uint32_t msgno,
 			    const struct fetchargs *fetchargs);
 static void index_printflags(struct index_state *state, uint32_t msgno,
@@ -990,7 +992,21 @@ int index_store(struct index_state *state, char *sequence,
 	    continue;
 	}
 
-	r = index_storeflag(state, msgno, storeargs);
+	switch (storeargs->operation) {
+	case STORE_ADD_FLAGS:
+	case STORE_REMOVE_FLAGS:
+	case STORE_REPLACE_FLAGS:
+	    r = index_storeflag(state, msgno, storeargs);
+	    break;
+
+	case STORE_ANNOTATION:
+	    r = index_store_annotation(state, msgno, storeargs);
+	    break;
+
+	default:
+	    r = IMAP_INTERNAL;
+	    break;
+	}
 	if (r) goto fail;
     }
 
@@ -2748,9 +2764,7 @@ static int index_fetchannotations(struct index_state *state,
     scope.which = ANNOTATION_SCOPE_MESSAGE;
     scope.mailbox = state->mailbox->name;
     scope.acl = state->mailbox->acl;
-    scope.messages = seqset_init(state->last_uid, SEQ_SPARSE);
-    seqset_add(scope.messages, state->map[msgno-1].record.uid, 1);
-    seqset_rewind(scope.messages);
+    scope.uid = state->map[msgno-1].record.uid;
 
     memset(&rock, 0, sizeof(rock));
     rock.pout = state->out;
@@ -2766,7 +2780,6 @@ static int index_fetchannotations(struct index_state *state,
 			   fetch_annotation_response, &rock,
 			   0);
 
-    seqset_free(scope.messages);
     return r;
 }
 
@@ -3349,7 +3362,7 @@ int index_urlfetch(struct index_state *state, uint32_t msgno,
 }
 
 /*
- * Helper function to perform a generalized STORE command
+ * Helper function to perform a STORE command for flags.
  */
 static int index_storeflag(struct index_state *state, uint32_t msgno,
 			   struct storeargs *storeargs)
@@ -3471,6 +3484,52 @@ static int index_storeflag(struct index_state *state, uint32_t msgno,
     return 0;
 }
 
+/*
+ * Helper function to perform a STORE command for annotations
+ */
+static int index_store_annotation(struct index_state *state,
+				  uint32_t msgno,
+				  struct storeargs *storeargs)
+{
+    int dirty = 0;
+    modseq_t oldmodseq;
+    struct mailbox *mailbox = state->mailbox;
+    struct index_map *im = &state->map[msgno-1];
+    annotate_scope_t scope;
+    int r;
+
+    oldmodseq = im->record.modseq;
+
+    memset(&scope, 0, sizeof(scope));
+    scope.which = ANNOTATION_SCOPE_MESSAGE;
+    scope.mailbox = state->mailbox->name;
+    scope.acl = state->mailbox->acl;
+    scope.uid = im->record.uid;
+
+    r = annotatemore_store(&scope,
+			   storeargs->entryatts,
+			   storeargs->namespace,
+			   storeargs->isadmin,
+			   storeargs->userid,
+			   storeargs->authstate);
+    if (r) return r;
+
+    /* It would be nice if the annotate layer told us whether it
+     * actually made a change to the database, but it doesn't, so
+     * we have to assume the message is dirty */
+    dirty = 1;
+
+    r = mailbox_rewrite_index_record(mailbox, &im->record);
+    if (r) return r;
+
+    /* if it's silent and unchanged, update the seen value */
+    if (storeargs->silent && im->told_modseq == oldmodseq)
+	im->told_modseq = im->record.modseq;
+
+    return 0;
+}
+
+
 int _search_searchbuf(char *s, comp_pat *p, struct buf *b)
 {
     if (!b->len)
@@ -3541,9 +3600,7 @@ static int _search_annotation(struct index_state *state,
     scope.which = ANNOTATION_SCOPE_MESSAGE;
     scope.mailbox = state->mailbox->name;
     scope.acl = state->mailbox->acl;
-    scope.messages = seqset_init(state->last_uid, SEQ_SPARSE);
-    seqset_add(scope.messages, state->map[msgno-1].record.uid, 1);
-    seqset_rewind(scope.messages);
+    scope.uid = state->map[msgno-1].record.uid;
 
     memset(&rock, 0, sizeof(rock));
     rock.match = &sa->value;
@@ -3559,7 +3616,6 @@ static int _search_annotation(struct index_state *state,
 
     strarray_fini(&entries);
     strarray_fini(&attribs);
-    seqset_free(scope.messages);
     return r;
 }
 
