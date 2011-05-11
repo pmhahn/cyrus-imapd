@@ -761,6 +761,9 @@ int undump_mailbox(const char *mbname,
     /* track quota use */
     old_quota_used = mailbox->i.quota_mailbox_used;
 
+    r = annotatemore_begin();
+    if (r) goto done;
+
     while(1) {
 	char fnamebuf[MAX_MAILBOX_PATH + 1024];
 	int isnowait, sawdigit;
@@ -1038,6 +1041,9 @@ int undump_mailbox(const char *mbname,
     eatline(pin, c);
     buf_free(&file);
     buf_free(&data);
+
+    if (!r)
+	annotatemore_commit();
 
     if (curfile >= 0) close(curfile);
     /* we fiddled the files under the hood, so we can't do anything
