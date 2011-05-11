@@ -8520,12 +8520,9 @@ static void cmd_getannotation(const char *tag, char *mboxpat)
 	goto freeargs;
     }
 
-    memset(&scope, 0, sizeof(scope));
-    scope.which = ANNOTATION_SCOPE_SERVER;
-    if (mboxpat[0]) {
-	scope.which = ANNOTATION_SCOPE_MAILBOX;
-	scope.mailbox = mboxpat;
-    }
+    annotate_scope_init_server(&scope);
+    if (mboxpat[0])
+	annotate_scope_init_mailbox(&scope, mboxpat);
 
     r = annotatemore_fetch(&scope, &entries, &attribs, &imapd_namespace,
 			   imapd_userisadmin || imapd_userisproxyadmin,
@@ -8699,12 +8696,9 @@ static void cmd_getmetadata(const char *tag, char *mboxpat)
     if (have_private) strarray_append(&newa, "value.priv");
     if (have_shared) strarray_append(&newa, "value.shared");
 
-    memset(&scope, 0, sizeof(scope));
-    scope.which = ANNOTATION_SCOPE_SERVER;
-    if (mboxpat[0]) {
-	scope.which = ANNOTATION_SCOPE_MAILBOX;
-	scope.mailbox = mboxpat;
-    }
+    annotate_scope_init_server(&scope);
+    if (mboxpat[0])
+	annotate_scope_init_mailbox(&scope, mboxpat);
 
     basesize = maxsize;
     r = annotatemore_fetch(&scope, &newe, &newa, &imapd_namespace,
@@ -8761,12 +8755,9 @@ static void cmd_setannotation(const char *tag, char *mboxpat)
 	goto freeargs;
     }
 
-    memset(&scope, 0, sizeof(scope));
-    scope.which = ANNOTATION_SCOPE_SERVER;
-    if (mboxpat[0]) {
-	scope.which = ANNOTATION_SCOPE_MAILBOX;
-	scope.mailbox = mboxpat;
-    }
+    annotate_scope_init_server(&scope);
+    if (mboxpat[0])
+	annotate_scope_init_mailbox(&scope, mboxpat);
 
     r = annotatemore_store(&scope,
 			   entryatts, &imapd_namespace, imapd_userisadmin,
@@ -8813,12 +8804,9 @@ static void cmd_setmetadata(const char *tag, char *mboxpat)
 	goto freeargs;
     }
 
-    memset(&scope, 0, sizeof(scope));
-    scope.which = ANNOTATION_SCOPE_SERVER;
-    if (mboxpat[0]) {
-	scope.which = ANNOTATION_SCOPE_MAILBOX;
-	scope.mailbox = mboxpat;
-    }
+    annotate_scope_init_server(&scope);
+    if (mboxpat[0])
+	annotate_scope_init_mailbox(&scope, mboxpat);
 
     r = annotatemore_store(&scope,
 			   entryatts, &imapd_namespace, imapd_userisadmin,

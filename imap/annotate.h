@@ -90,6 +90,26 @@ struct annotate_scope
     const char *acl;		/* for _MESSAGE */
 };
 
+#define annotate_scope_init_server(_scope) \
+    do { \
+	memset((_scope), 0, sizeof(annotate_scope_t)); \
+	(_scope)->which = ANNOTATION_SCOPE_SERVER; \
+    } while(0)
+#define annotate_scope_init_mailbox(_scope, _mboxnamepatt) \
+    do { \
+	memset((_scope), 0, sizeof(annotate_scope_t)); \
+	(_scope)->which = ANNOTATION_SCOPE_MAILBOX; \
+	(_scope)->mailbox = (_mboxnamepatt); \
+    } while(0)
+#define annotate_scope_init_message(_scope, _mailbox, _uid) \
+    do { \
+	memset((_scope), 0, sizeof(annotate_scope_t)); \
+	(_scope)->which = ANNOTATION_SCOPE_MESSAGE; \
+	(_scope)->mailbox = (_mailbox)->name; \
+	(_scope)->acl = (_mailbox)->acl; \
+	(_scope)->uid = (_uid); \
+    } while(0)
+
 /* String List Management */
 void appendstrlist(struct strlist **l, char *s);
 void appendstrlistpat(struct strlist **l, char *s);

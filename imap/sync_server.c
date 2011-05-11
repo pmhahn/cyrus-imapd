@@ -1814,8 +1814,7 @@ static int do_annotation(struct dlist *kin)
 		   *userid ? "value.priv" : "value.shared",
 		   &value);
     appendentryatt(&entryatts, entry, attvalues);
-    scope.which = ANNOTATION_SCOPE_MAILBOX;
-    scope.mailbox = name;
+    annotate_scope_init_mailbox(&scope, name);
     r = annotatemore_store(&scope, entryatts, sync_namespacep,
 			   sync_userisadmin, userid, sync_authstate);
 
@@ -1853,8 +1852,7 @@ static int do_unannotation(struct dlist *kin)
 		   *userid ? "value.priv" : "value.shared",
 		   &empty);
     appendentryatt(&entryatts, entry, attvalues);
-    scope.which = ANNOTATION_SCOPE_MAILBOX;
-    scope.mailbox = name;
+    annotate_scope_init_mailbox(&scope, name);
     r = annotatemore_store(&scope, entryatts, sync_namespacep,
 			   sync_userisadmin, userid, sync_authstate);
 

@@ -864,11 +864,7 @@ int append_fromstage(struct appendstate *as, struct body **body,
     }
     if (!r && annotations) {
 	annotate_scope_t scope;
-	memset(&scope, 0, sizeof(scope));
-	scope.which = ANNOTATION_SCOPE_MESSAGE;
-	scope.mailbox = as->mailbox->name;
-	scope.acl = as->mailbox->acl;
-	scope.uid = record.uid;
+	annotate_scope_init_message(&scope, as->mailbox, record.uid);
 
 	r = annotatemore_store(&scope,
 			       annotations,

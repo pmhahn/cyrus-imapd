@@ -2760,11 +2760,8 @@ static int index_fetchannotations(struct index_state *state,
     struct fetch_annotation_rock rock;
     int r = 0;
 
-    memset(&scope, 0, sizeof(scope));
-    scope.which = ANNOTATION_SCOPE_MESSAGE;
-    scope.mailbox = state->mailbox->name;
-    scope.acl = state->mailbox->acl;
-    scope.uid = state->map[msgno-1].record.uid;
+    annotate_scope_init_message(&scope, state->mailbox,
+				state->map[msgno-1].record.uid);
 
     memset(&rock, 0, sizeof(rock));
     rock.pout = state->out;
@@ -3500,11 +3497,8 @@ static int index_store_annotation(struct index_state *state,
 
     oldmodseq = im->record.modseq;
 
-    memset(&scope, 0, sizeof(scope));
-    scope.which = ANNOTATION_SCOPE_MESSAGE;
-    scope.mailbox = state->mailbox->name;
-    scope.acl = state->mailbox->acl;
-    scope.uid = im->record.uid;
+    annotate_scope_init_message(&scope, state->mailbox,
+				im->record.uid);
 
     r = annotatemore_store(&scope,
 			   storeargs->entryatts,
@@ -3596,11 +3590,8 @@ static int _search_annotation(struct index_state *state,
     strarray_append(&entries, sa->entry);
     strarray_append(&attribs, sa->attrib);
 
-    memset(&scope, 0, sizeof(scope));
-    scope.which = ANNOTATION_SCOPE_MESSAGE;
-    scope.mailbox = state->mailbox->name;
-    scope.acl = state->mailbox->acl;
-    scope.uid = state->map[msgno-1].record.uid;
+    annotate_scope_init_message(&scope, state->mailbox,
+				state->map[msgno-1].record.uid);
 
     memset(&rock, 0, sizeof(rock));
     rock.match = &sa->value;
