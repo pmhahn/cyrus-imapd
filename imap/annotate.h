@@ -49,7 +49,6 @@
 #include "imapd.h"
 #include "mboxname.h"
 #include "prot.h"
-#include "cyrusdb.h"
 #include "util.h"
 #include "strarray.h"
 
@@ -133,8 +132,7 @@ typedef int (*annotatemore_find_proc_t)(const char *mailbox,
 
 /* 'proc'ess all annotations matching 'mailbox' and 'entry' */
 int annotatemore_findall(const char *mailbox, uint32_t uid, const char *entry,
-			 annotatemore_find_proc_t proc, void *rock,
-			 struct txn **tid);
+			 annotatemore_find_proc_t proc, void *rock);
 
 /* fetch annotations and output results */
 typedef void (*annotate_fetch_cb_t)(const char *mboxname,
@@ -165,8 +163,7 @@ int annotatemore_store(const annotate_scope_t *,
 /* low-level interface for use by mbdump routines */
 int annotatemore_write_entry(const char *mboxname, const char *entry,
 			     const char *userid,
-			     const struct buf *value,
-			     struct txn **tid);
+			     const struct buf *value);
 
 /* rename the annotations for 'oldmboxname' to 'newmboxname'
  * if 'olduserid' is non-NULL then the private annotations

@@ -623,12 +623,11 @@ static void annotate_cursor_setup(annotate_cursor_t *cursor,
 }
 
 int annotatemore_findall(const char *mailbox, uint32_t uid, const char *entry,
-			 annotatemore_find_proc_t proc, void *rock,
-			 struct txn **tid)
+			 annotatemore_find_proc_t proc, void *rock)
 {
     annotate_cursor_t cursor;
     annotate_cursor_setup(&cursor, mailbox, uid);
-    return _annotate_find(&cursor, entry, proc, rock, tid);
+    return _annotate_find(&cursor, entry, proc, rock, NULL);
 }
 
 static int _annotate_find(const annotate_cursor_t *cursor,
@@ -1920,10 +1919,9 @@ static int write_entry(const char *mboxname,
 
 int annotatemore_write_entry(const char *mboxname, const char *entry,
 			     const char *userid,
-			     const struct buf *value,
-			     struct txn **tid)
+			     const struct buf *value)
 {
-    return write_entry(mboxname, 0, entry, userid, value, tid);
+    return write_entry(mboxname, 0, entry, userid, value, NULL);
 }
 
 struct storedata {

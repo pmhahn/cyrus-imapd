@@ -1506,7 +1506,7 @@ static int do_getannotation(struct dlist *kin)
 {
     const char *mboxname = kin->sval;
     return annotatemore_findall(mboxname, 0, "*", &getannotation_cb,
-				(void *)mboxname, NULL);
+				(void *)mboxname);
 }
 
 static void print_quota(struct quota *q)

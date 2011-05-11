@@ -522,7 +522,7 @@ int dump_mailbox(const char *tag, struct mailbox *mailbox, uint32_t uid_start,
 
     /* Dump annotations */
     annotatemore_findall(mailbox->name, 0, "*", dump_annotations,
-			 (void *) pout, NULL);
+			 (void *) pout);
 
     /* Dump user files if this is an inbox */
     if (mboxname_isusermailbox(mailbox->name, 1)) {
@@ -830,7 +830,7 @@ int undump_mailbox(const char *mbname,
 	    }
 
 	    annotatemore_write_entry(mbname, annotation, tmpuserid,
-				     &content, NULL);
+				     &content);
     
 	    free(tmpuserid);
 	    free(annotation);
