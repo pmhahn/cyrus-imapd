@@ -51,6 +51,7 @@
 #endif
 #include <syslog.h>
 #include <string.h>
+#include <sys/stat.h>
 
 #include "exitcodes.h"
 #include "global.h"
