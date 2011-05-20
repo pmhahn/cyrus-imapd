@@ -175,8 +175,8 @@ lmtpstats.h: lmtpstats.c
 imap_err.c imap_err.h: imap_err.et
 	$(COMPILE_ET) $(srcdir)/imap_err.et
 
-annotate.o append.o arbitron.o convert_code.o: imap_err.h
-ctl_mboxlist.o cvt_cyrusdb.o: imap_err.h
+annotate.o append.o arbitron.o conversations.o convert_code.o: imap_err.h
+ctl_conversationsdb.o ctl_mboxlist.o cvt_cyrusdb.o: imap_err.h
 cyr_dbtool.o cyrdump.o cyr_sequence.o deliver.o dlist.o: imap_err.h
 duplicate.o fud.o global.o imapd.o imap_proxy.o index.o: imap_err.h
 ipurge.o lmtpd.o lmtpengine.o lmtp_sieve.o mailbox.o mbdump.o: imap_err.h
