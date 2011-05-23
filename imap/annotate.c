@@ -2399,7 +2399,7 @@ static int _annotate_may_store(const struct storedata *sdata,
 	acl = cursor->acl;
 	/* RFC5257: writing to a private annotation needs 'r'.
 	 * Writing to a shared annotation needs 'n' */
-	needed = (is_shared ? ACL_WANNOT : ACL_READ);
+	needed = (is_shared ? ACL_ANNOTATEMSG : ACL_READ);
 	/* fall through to ACL check */
     }
 
