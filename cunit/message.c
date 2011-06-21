@@ -628,7 +628,7 @@ static void test_references(void)
     message_write_nstring(&b, input); \
     buf_cstring(&b); \
     CU_ASSERT_EQUAL(b.len, explen); \
-    CU_ASSERT_STRING_EQUAL(b.s, expout)
+    CU_ASSERT(!strcmp(b.s, expout))
 
 static void test_write_nstring(void)
 {
