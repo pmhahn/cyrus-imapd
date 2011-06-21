@@ -212,6 +212,33 @@ static void config_ispartition(const char *key,
     if (!strncmp("partition-", key, 10)) *found = 1;
 }
 
+/*
+ * Reset the global configuration to a virginal state.  This is
+ * only useful for unit tests.
+ */
+void config_reset(void)
+{
+    enum imapopt opt;
+
+    if (!config_filename)
+	return;
+
+    free((char *)config_filename);
+    config_filename = NULL;
+
+    /* reset all the options */
+    for (opt = IMAPOPT_ZERO; opt < IMAPOPT_LAST; opt++) {
+	if (imapopts[opt].seen && imapopts[opt].t == OPT_STRING)
+	    free((char *)imapopts[opt].val.s);
+	memset(&imapopts[opt].val, 0, sizeof(imapopts[opt].val));
+	imapopts[opt].seen = 0;
+    }
+    config_dir = NULL;
+
+    /* free the overflow table */
+    free_hash_table(&confighash, free);
+}
+
 static const unsigned char qos[] = {
 /* cs0..cs7 */		0x00, 0x20, 0x40, 0x60, 0x80, 0xa0, 0xc0, 0xe0,
 /* af11..af13 */	0x28, 0x30, 0x38,
