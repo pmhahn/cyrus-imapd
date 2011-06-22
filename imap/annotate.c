@@ -1758,11 +1758,6 @@ static int fetch_cb(char *name, int matchlen,
     struct mboxlist_entry *mbentry = NULL;
     annotate_cursor_t cursor;
 
-    memset(&cursor, 0, sizeof(cursor));
-    cursor.which = ANNOTATION_SCOPE_MAILBOX;
-    cursor.ext_mboxname = ext_mboxname;
-    cursor.int_mboxname = int_mboxname;
-
     /* We have to reset the sawuser flag before each fetch command.
      * Handle it as a dirty hack.
      */
@@ -1804,6 +1799,9 @@ static int fetch_cb(char *name, int matchlen,
 
     if (mboxlist_lookup(int_mboxname, &mbentry, NULL))
 	return 0;
+
+    annotate_cursor_setup(&cursor, int_mboxname, 0);
+    cursor.ext_mboxname = ext_mboxname;
     cursor.mbentry = mbentry;
 
     _annotate_fetch_entries(fdata, &cursor, /*proxy_check*/0);
@@ -1963,8 +1961,7 @@ int annotatemore_fetch(const annotate_scope_t *scope,
 	if (fdata.entry_list) {
 	    annotate_cursor_t cursor;
 
-	    memset(&cursor, 0, sizeof(cursor));
-	    cursor.which = ANNOTATION_SCOPE_SERVER;
+	    annotate_cursor_setup(&cursor, "", 0);
 
 	    /* xxx better way to determine a size for this table? */
 	    construct_hash_table(&fdata.entry_table, 100, 1);
@@ -2014,9 +2011,7 @@ int annotatemore_fetch(const annotate_scope_t *scope,
 	if (fdata.entry_list || proxy_fetch_func) {
 	    annotate_cursor_t cursor;
 
-	    memset(&cursor, 0, sizeof(cursor));
-	    cursor.which = ANNOTATION_SCOPE_MESSAGE;
-	    cursor.int_mboxname = scope->mailbox;
+	    annotate_cursor_setup(&cursor, scope->mailbox, scope->uid);
 	    cursor.acl = scope->acl;
 
 	    /* xxx better way to determine a size for this table? */
@@ -2029,7 +2024,6 @@ int annotatemore_fetch(const annotate_scope_t *scope,
 // 		construct_hash_table(&fdata.server_table, 10, 1);
 // 	    }
 
-	    cursor.uid = scope->uid;
 	    _annotate_fetch_entries(&fdata, &cursor, /*proxy_check*/0);
 
 	    free_hash_table(&fdata.entry_table, NULL);
@@ -2286,11 +2280,6 @@ static int store_cb(const char *name, int matchlen,
     int r = 0;
     annotate_cursor_t cursor;
 
-    memset(&cursor, 0, sizeof(cursor));
-    cursor.which = ANNOTATION_SCOPE_MAILBOX;
-    cursor.ext_mboxname = name;
-    cursor.int_mboxname = int_mboxname;
-
     /* We have to reset the sawuser flag before each fetch command.
      * Handle it as a dirty hack.
      */
@@ -2326,6 +2315,9 @@ static int store_cb(const char *name, int matchlen,
 
     if (mboxlist_lookup(int_mboxname, &mbentry, NULL))
 	return 0;
+
+    annotate_cursor_setup(&cursor, int_mboxname, 0);
+    cursor.ext_mboxname = name;
     cursor.mbentry = mbentry;
 
     r = _annotate_store_entries(sdata, &cursor);
@@ -2690,8 +2682,7 @@ int annotatemore_store(const annotate_scope_t *scope,
 	if (sdata.entry_list) {
 	    annotate_cursor_t cursor;
 
-	    memset(&cursor, 0, sizeof(cursor));
-	    cursor.which = ANNOTATION_SCOPE_SERVER;
+	    annotate_cursor_setup(&cursor, "", 0);
 
 	    r = _annotate_store_entries(&sdata, &cursor);
 
@@ -2739,9 +2730,7 @@ int annotatemore_store(const annotate_scope_t *scope,
 
 	annotate_cursor_t cursor;
 
-	memset(&cursor, 0, sizeof(cursor));
-	cursor.which = ANNOTATION_SCOPE_MESSAGE;
-	cursor.int_mboxname = scope->mailbox;
+	annotate_cursor_setup(&cursor, scope->mailbox, scope->uid);
 	cursor.acl = scope->acl;
 
 // 	if (proxy_store_func) {
@@ -2749,7 +2738,6 @@ int annotatemore_store(const annotate_scope_t *scope,
 // 	    construct_hash_table(&sdata.server_table, 10, 1);
 // 	}
 
-	cursor.uid = scope->uid;
 	r = _annotate_store_entries(&sdata, &cursor);
 
 	if (!r) sync_log_annotation("");
