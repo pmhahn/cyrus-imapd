@@ -145,6 +145,7 @@ static int set_up(void)
 	}
     }
 
+    libcyrus_config_setstring(CYRUSOPT_CONFIG_DIR, DBDIR);
     config_read_string(
 	"configdirectory: "DBDIR"/conf\n"
 	"defaultpartition: "PARTITION"\n"
