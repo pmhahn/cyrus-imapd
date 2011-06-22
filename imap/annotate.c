@@ -535,8 +535,8 @@ static void annotate_closedb(annotate_db_t *d)
 
     free(d->filename);
     free(d->mboxname);
-    free(d);
     memset(d, 0, sizeof(*d));	/* JIC */
+    free(d);
 }
 
 static void annotate_putdb(annotate_db_t **dbp)
