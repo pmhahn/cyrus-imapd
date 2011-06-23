@@ -230,7 +230,9 @@ void config_reset(void)
     for (opt = IMAPOPT_ZERO; opt < IMAPOPT_LAST; opt++) {
 	if (imapopts[opt].seen && imapopts[opt].t == OPT_STRING)
 	    free((char *)imapopts[opt].val.s);
-	memset(&imapopts[opt].val, 0, sizeof(imapopts[opt].val));
+	memcpy(&imapopts[opt].val,
+	       &imapopts[opt].def,
+	       sizeof(imapopts[opt].val));
 	imapopts[opt].seen = 0;
     }
     config_dir = NULL;
