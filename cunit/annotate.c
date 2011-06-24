@@ -46,7 +46,7 @@ static void fetch_cb(const char *mboxname, uint32_t uid,
     for ( ; avlist ; avlist = avlist->next) {
 	buf_printf(&buf, " %s=", avlist->attrib);
 	if (avlist->value.s)
-	    buf_printf(&buf, "\"%s\"", avlist->value.s);
+	    buf_printf(&buf, "\"%s\"", buf_cstring(&avlist->value));
 	else
 	    buf_printf(&buf, "NIL");
     }
