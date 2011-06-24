@@ -954,6 +954,7 @@ static void output_entryatt(const annotate_cursor_t *cursor, const char *entry,
     char key[MAX_MAILBOX_BUFFER]; /* XXX MAX_MAILBOX_NAME + entry + userid */
     struct buf buf = BUF_INITIALIZER;
     int vallen;
+    char ext_mboxname[MAX_MAILBOX_BUFFER];
 
     /* We don't put any funny interpretations on NULL values for
      * some of these anymore, now that the dirty hacks are gone. */
@@ -965,10 +966,16 @@ static void output_entryatt(const annotate_cursor_t *cursor, const char *entry,
 
     if (cursor->ext_mboxname)
 	mboxname = cursor->ext_mboxname;
-    else if (cursor->ext_mboxname)
-	mboxname = cursor->int_mboxname;
+    else if (cursor->int_mboxname) {
+	fdata->namespace->mboxname_toexternal(fdata->namespace,
+					      cursor->int_mboxname,
+					      fdata->userid,
+					      ext_mboxname);
+	mboxname = ext_mboxname;
+    }
     else
 	mboxname = "";
+    /* @mboxname is now an external mailbox name */
 
     /* Check if this is a new entry.
      * If so, flush our current entry.
