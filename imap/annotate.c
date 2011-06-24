@@ -1618,7 +1618,7 @@ static const annotate_entrydesc_t server_builtin_entries[] =
 	PROXY_AND_BACKEND,
 	ATTRIB_VALUE_SHARED,
 	ACL_ADMIN,
-	/*get*/NULL,
+	annotation_get_fromdb,
 	annotation_set_todb,
 	NULL
     },{
@@ -1627,7 +1627,7 @@ static const annotate_entrydesc_t server_builtin_entries[] =
 	PROXY_AND_BACKEND,
 	ATTRIB_VALUE_SHARED | ATTRIB_VALUE_PRIV,
 	ACL_ADMIN,
-	/*get*/NULL,
+	annotation_get_fromdb,
 	annotation_set_todb,
 	NULL
     },{
@@ -1645,7 +1645,7 @@ static const annotate_entrydesc_t server_builtin_entries[] =
 	PROXY_AND_BACKEND,
 	ATTRIB_VALUE_SHARED,
 	ACL_ADMIN,
-	/*get*/NULL,
+	annotation_get_fromdb,
 	annotation_set_todb,
 	NULL
     },{
@@ -1672,7 +1672,7 @@ static const annotate_entrydesc_t server_builtin_entries[] =
 	PROXY_AND_BACKEND,
 	ATTRIB_VALUE_SHARED,
 	ACL_ADMIN,
-	/*get*/NULL,
+	annotation_get_fromdb,
 	annotation_set_todb,
 	NULL
     },{ NULL, 0, ANNOTATION_PROXY_T_INVALID,
