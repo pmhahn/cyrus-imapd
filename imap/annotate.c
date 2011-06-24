@@ -812,6 +812,11 @@ static int find_cb(void *rock, const char *key, int keylen,
     struct buf value = BUF_INITIALIZER;
     int r;
 
+#if DEBUG
+    syslog(LOG_ERR, "find_cb: found key %s in %s",
+	    key_as_string(key, keylen), frock->d->filename);
+#endif
+
     r = split_key(key, keylen, &mboxname, &uid,
 		  &entry, &userid);
     if (r)
@@ -2105,7 +2110,8 @@ static int write_entry(const char *mboxname,
     if (value->s == NULL) {
 
 #if DEBUG
-	syslog(LOG_ERR, "write_entry: deleting key %s", key_as_string(key, keylen));
+	syslog(LOG_ERR, "write_entry: deleting key %s from %s",
+		key_as_string(key, keylen), d->filename);
 #endif
 
 	do {
@@ -2136,7 +2142,8 @@ static int write_entry(const char *mboxname,
 	buf_appendmap(&data, (const char *)&l, sizeof(l));
 
 #if DEBUG
-	syslog(LOG_ERR, "write_entry: storing key %s", key_as_string(key, keylen));
+	syslog(LOG_ERR, "write_entry: storing key %s to %s",
+		key_as_string(key, keylen), d->filename);
 #endif
 
 	do {
