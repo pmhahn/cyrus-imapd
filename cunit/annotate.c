@@ -608,6 +608,147 @@ static void test_delete(void)
     buf_free(&val);
 }
 
+static void test_rename(void)
+{
+    int r;
+    annotate_scope_t scope;
+    struct mailbox mailbox;
+    strarray_t entries = STRARRAY_INITIALIZER;
+    strarray_t attribs = STRARRAY_INITIALIZER;
+    strarray_t results = STRARRAY_INITIALIZER;
+    struct entryattlist *ealist = NULL;
+    struct buf val = BUF_INITIALIZER;
+    struct buf val2 = BUF_INITIALIZER;
+
+    annotatemore_open();
+
+    CU_ASSERT_EQUAL(fexists(DBDIR"/data/user/smurf/annotations.db"), -ENOENT);
+    CU_ASSERT_EQUAL(fexists(DBDIR"/data/user/smurfette/annotations.db"), -ENOENT);
+
+    memset(&mailbox, 0, sizeof(mailbox));
+    mailbox.name = MBOXNAME1_INT;
+    mailbox.acl = ACL;
+
+    strarray_append(&entries, COMMENT);
+    strarray_append(&attribs, SHARED);
+
+    r = annotatemore_begin();
+    CU_ASSERT_EQUAL(r, 0);
+
+    /* set some values */
+
+    buf_appendcstr(&val, VALUE0);
+    setentryatt(&ealist, COMMENT, SHARED, &val);
+    annotate_scope_init_mailbox(&scope, MBOXNAME1_INT);
+    r = annotatemore_store(&scope, ealist,
+		           &namespace, isadmin, userid, auth_state);
+    CU_ASSERT_EQUAL(r, 0);
+    freeentryatts(ealist);
+    ealist = NULL;
+
+    buf_reset(&val);
+    buf_appendcstr(&val, VALUE1);
+    setentryatt(&ealist, COMMENT, SHARED, &val);
+    annotate_scope_init_message(&scope, &mailbox, 42);
+    r = annotatemore_store(&scope, ealist,
+		           &namespace, isadmin, userid, auth_state);
+    CU_ASSERT_EQUAL(r, 0);
+    freeentryatts(ealist);
+    ealist = NULL;
+
+    buf_reset(&val);
+    buf_appendcstr(&val, VALUE2);
+    setentryatt(&ealist, COMMENT, SHARED, &val);
+    annotate_scope_init_message(&scope, &mailbox, 127);
+    r = annotatemore_store(&scope, ealist,
+		           &namespace, isadmin, userid, auth_state);
+    CU_ASSERT_EQUAL(r, 0);
+    freeentryatts(ealist);
+    ealist = NULL;
+
+    r = annotatemore_commit();
+    CU_ASSERT_EQUAL(r, 0);
+
+    /* check that we can fetch the values back */
+
+    r = annotatemore_msg_lookup(MBOXNAME1_INT, 0, COMMENT, /*userid*/"", &val2);
+    CU_ASSERT_EQUAL_FATAL(r, 0);
+    CU_ASSERT_PTR_NOT_NULL_FATAL(val2.s);
+    CU_ASSERT_STRING_EQUAL(buf_cstring(&val2), VALUE0);
+    buf_free(&val2);
+
+    r = annotatemore_msg_lookup(MBOXNAME1_INT, 42, COMMENT, /*userid*/"", &val2);
+    CU_ASSERT_EQUAL_FATAL(r, 0);
+    CU_ASSERT_PTR_NOT_NULL_FATAL(val2.s);
+    CU_ASSERT_STRING_EQUAL(buf_cstring(&val2), VALUE1);
+    buf_free(&val2);
+
+    r = annotatemore_msg_lookup(MBOXNAME1_INT, 127, COMMENT, /*userid*/"", &val2);
+    CU_ASSERT_EQUAL_FATAL(r, 0);
+    CU_ASSERT_PTR_NOT_NULL_FATAL(val2.s);
+    CU_ASSERT_STRING_EQUAL(buf_cstring(&val2), VALUE2);
+    buf_free(&val2);
+
+    CU_ASSERT_EQUAL(fexists(DBDIR"/data/user/smurf/annotations.db"), 0);
+    CU_ASSERT_EQUAL(fexists(DBDIR"/data/user/smurfette/annotations.db"), -ENOENT);
+
+    /* rename MBOXNAME1 -> MBOXNAME2 */
+
+    r = annotatemore_rename(MBOXNAME1_INT, MBOXNAME2_INT,
+			    "smurf", "smurfette");
+    CU_ASSERT_EQUAL(r, 0);
+
+    CU_ASSERT_EQUAL(fexists(DBDIR"/data/user/smurf/annotations.db"), -ENOENT);
+    CU_ASSERT_EQUAL(fexists(DBDIR"/data/user/smurfette/annotations.db"), 0);
+
+    /* check that the values are gone under the old name */
+
+    r = annotatemore_msg_lookup(MBOXNAME1_INT, 0, COMMENT, /*userid*/"", &val2);
+    CU_ASSERT_EQUAL_FATAL(r, 0);
+    CU_ASSERT_PTR_NULL_FATAL(val2.s);
+    buf_free(&val2);
+
+    r = annotatemore_msg_lookup(MBOXNAME1_INT, 42, COMMENT, /*userid*/"", &val2);
+    CU_ASSERT_EQUAL_FATAL(r, 0);
+    CU_ASSERT_PTR_NULL_FATAL(val2.s);
+    buf_free(&val2);
+
+    r = annotatemore_msg_lookup(MBOXNAME1_INT, 127, COMMENT, /*userid*/"", &val2);
+    CU_ASSERT_EQUAL_FATAL(r, 0);
+    CU_ASSERT_PTR_NULL_FATAL(val2.s);
+    buf_free(&val2);
+
+    /* check that the values are present under the new name */
+
+    r = annotatemore_msg_lookup(MBOXNAME2_INT, 0, COMMENT, /*userid*/"", &val2);
+    CU_ASSERT_EQUAL_FATAL(r, 0);
+    CU_ASSERT_PTR_NOT_NULL_FATAL(val2.s);
+    CU_ASSERT_STRING_EQUAL(buf_cstring(&val2), VALUE0);
+    buf_free(&val2);
+
+    r = annotatemore_msg_lookup(MBOXNAME2_INT, 42, COMMENT, /*userid*/"", &val2);
+    CU_ASSERT_EQUAL_FATAL(r, 0);
+    CU_ASSERT_PTR_NOT_NULL_FATAL(val2.s);
+    CU_ASSERT_STRING_EQUAL(buf_cstring(&val2), VALUE1);
+    buf_free(&val2);
+
+    r = annotatemore_msg_lookup(MBOXNAME2_INT, 127, COMMENT, /*userid*/"", &val2);
+    CU_ASSERT_EQUAL_FATAL(r, 0);
+    CU_ASSERT_PTR_NOT_NULL_FATAL(val2.s);
+    CU_ASSERT_STRING_EQUAL(buf_cstring(&val2), VALUE2);
+    buf_free(&val2);
+
+    CU_ASSERT_EQUAL(fexists(DBDIR"/data/user/smurf/annotations.db"), -ENOENT);
+    CU_ASSERT_EQUAL(fexists(DBDIR"/data/user/smurfette/annotations.db"), 0);
+
+    annotatemore_close();
+
+    strarray_fini(&entries);
+    strarray_fini(&attribs);
+    strarray_fini(&results);
+    buf_free(&val);
+}
+
 static int set_up(void)
 {
     int r;
@@ -620,6 +761,7 @@ static int set_up(void)
 	DBDIR"/data",
 	DBDIR"/data/user",
 	DBDIR"/data/user/smurf",
+	DBDIR"/data/user/smurfette",
 	NULL
     };
 
@@ -657,6 +799,13 @@ static int set_up(void)
 
     memset(&mbentry, 0, sizeof(mbentry));
     mbentry.name = MBOXNAME1_INT;
+    mbentry.mbtype = 0;
+    mbentry.partition = PARTITION;
+    mbentry.acl = ACL;
+    r = mboxlist_update(&mbentry, /*localonly*/1);
+
+    memset(&mbentry, 0, sizeof(mbentry));
+    mbentry.name = MBOXNAME2_INT;
     mbentry.mbtype = 0;
     mbentry.partition = PARTITION;
     mbentry.acl = ACL;
