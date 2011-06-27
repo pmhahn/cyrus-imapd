@@ -416,6 +416,45 @@ static void append_db(annotate_db_t *d)
     d->next = NULL;
 }
 
+/*
+ * Generate a new string containing the db filename
+ * for the given @mboxname, (or the global db if
+ * @mboxname is NULL).  Returns the new string in
+ * *@fnamep.  Returns an error code.
+ */
+static int annotate_dbname(const char *mboxname, char **fnamep)
+{
+    char *fname;
+    int r = 0;
+
+    if (mboxname) {
+	/* per-mbox database */
+	struct mboxlist_entry *mbentry = NULL;
+
+	r = mboxlist_lookup(mboxname, &mbentry, NULL);
+	if (r)
+	    return r;
+	fname = mboxname_metapath(mbentry->partition, mboxname,
+			          META_ANNOTATIONS, /*isnew*/0);
+	mboxlist_entry_free(&mbentry);
+	if (!fname)
+	    return IMAP_MAILBOX_BADNAME;
+	fname = xstrdup(fname);
+    }
+    else {
+	/* global database */
+	const char *conf_fname = config_getstring(IMAPOPT_ANNOTATION_DB_PATH);
+
+	if (conf_fname)
+	    fname = xstrdup(conf_fname);
+	else
+	    fname = strconcat(config_dir, FNAME_ANNOTATIONS, (char *)NULL);
+    }
+
+    *fnamep = fname;
+    return r;
+}
+
 static int annotate_getdb(const char *mboxname,
 			  unsigned int uid,
 		          annotate_db_t **dbp)
@@ -456,33 +495,9 @@ static int annotate_getdb(const char *mboxname,
     }
     /* not found, open/create a new one */
 
-    /* create db file name */
-    if (mboxname) {
-	/* per-mbox database */
-	struct mboxlist_entry *mbentry = NULL;
-
-	r = mboxlist_lookup(mboxname, &mbentry, NULL);
-	if (r)
-	    goto error;
-	fname = mboxname_metapath(mbentry->partition, mboxname,
-			          META_ANNOTATIONS, /*isnew*/0);
-	mboxlist_entry_free(&mbentry);
-	if (!fname) {
-	    r = IMAP_MAILBOX_BADNAME;
-	    goto error;
-	}
-	fname = xstrdup(fname);
-    }
-    else {
-	/* global database */
-	const char *conf_fname = config_getstring(IMAPOPT_ANNOTATION_DB_PATH);
-
-	if (conf_fname)
-	    fname = xstrdup(conf_fname);
-	else
-	    fname = strconcat(config_dir, FNAME_ANNOTATIONS, (char *)NULL);
-    }
-
+    r = annotate_dbname(mboxname, &fname);
+    if (r)
+	goto error;
 #if DEBUG
     syslog(LOG_ERR, "Opening annotations db %s\n", fname);
 #endif
@@ -2880,14 +2895,36 @@ int annotatemore_delete(const char *mboxname)
 {
     /* we treat a deleteion as a rename without a new name */
     int r;
+    char *fname = NULL;
+
+    assert(mboxname);
 
     r = annotatemore_begin();
-    if (!r)
-	r = _annotate_rewrite(mboxname, /*olduid*/0, /*olduserid*/NULL,
-			     /*newmboxname*/NULL, /*newuid*/0, /*newuserid*/NULL,
-			     /*copy*/0);
-    if (!r)
-	r = annotatemore_commit();
+    if (r)
+	goto out;
+
+    r = _annotate_rewrite(mboxname, /*olduid*/0, /*olduserid*/NULL,
+			 /*newmboxname*/NULL, /*newuid*/0, /*newuserid*/NULL,
+			 /*copy*/0);
+    if (r)
+	goto out;
+
+    r = annotate_dbname(mboxname, &fname);
+    if (r)
+	goto out;
+
+    r = DB->remove(fname);
+    if (r) {
+	r = IMAP_IOERROR;
+	goto out;
+    }
+
+    r = annotatemore_commit();
+
+out:
+    free(fname);
+    if (r)
+	annotatemore_abort();
     return r;
 }
 
