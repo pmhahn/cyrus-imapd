@@ -674,12 +674,13 @@ static int make_key(const char *mboxname,
 {
     int keylen = 0;
 
-    strlcpy(key+keylen, mboxname, keysize-keylen);
-    keylen += strlen(mboxname) + 1;
-    if (uid) {
-	snprintf(key+keylen, keysize-keylen,
-		 "/UID%u", uid);
-	keylen += strlen(key+keylen);
+    if (!uid) {
+	strlcpy(key+keylen, mboxname, keysize-keylen);
+	keylen += strlen(mboxname) + 1;
+    }
+    else {
+	snprintf(key+keylen, keysize-keylen, "%u", uid);
+	keylen += strlen(key+keylen) + 1;
     }
     strlcpy(key+keylen, entry, keysize-keylen);
     keylen += strlen(entry);
@@ -693,7 +694,8 @@ static int make_key(const char *mboxname,
     return keylen;
 }
 
-static int split_key(const char *key, int keysize,
+static int split_key(const annotate_db_t *d,
+		     const char *key, int keysize,
 		     const char **mboxnamep,
 		     unsigned int *uidp,
 		     const char **entryp,
@@ -704,6 +706,7 @@ static int split_key(const char *key, int keysize,
     int nfields = 0;
     const char *p;
     unsigned int uid = 0;
+    const char *mboxname = "";
 
     /* paranoia: ensure the last character in the key is
      * a NUL, which it should be because of the way we
@@ -728,17 +731,21 @@ static int split_key(const char *key, int keysize,
     if (nfields != NFIELDS)
 	return IMAP_ANNOTATION_BADENTRY;
 
-    if (!strncmp(fields[1], "/UID", 4)) {
+    if (d->mboxname) {
+	/* per-folder db for message scope annotations */
 	char *end = NULL;
-	uid = strtoul(fields[1]+4, &end, 10);
-	if (uid == 0 ||
-	    end == NULL ||
-	    *end != '/')
+	uid = strtoul(fields[0], &end, 10);
+	if (uid == 0 || end == NULL || *end)
 	    return IMAP_ANNOTATION_BADENTRY;
-	fields[1] = end;
+	mboxname = d->mboxname;
+    }
+    else {
+	/* global db for mailnbox & server scope annotations */
+	uid = 0;
+	mboxname = fields[0];
     }
 
-    if (mboxnamep) *mboxnamep = fields[0];
+    if (mboxnamep) *mboxnamep = mboxname;
     if (uidp) *uidp = uid;
     if (entryp) *entryp = fields[1];
     if (useridp) *useridp = fields[2];
@@ -747,7 +754,8 @@ static int split_key(const char *key, int keysize,
 }
 
 #if DEBUG
-static const char *key_as_string(const char *key, int keylen)
+static const char *key_as_string(const annotate_db_t *d,
+			         const char *key, int keylen)
 {
     const char *mboxname, *entry, *userid;
     unsigned int uid;
@@ -755,13 +763,13 @@ static const char *key_as_string(const char *key, int keylen)
     static struct buf buf = BUF_INITIALIZER;
 
     buf_reset(&buf);
-    r = split_key(key, keylen, &mboxname, &uid, &entry, &userid);
+    r = split_key(d, key, keylen, &mboxname, &uid, &entry, &userid);
     if (r)
 	buf_appendcstr(&buf, "invalid");
     else
 	buf_printf(&buf, "{ mboxname=\"%s\" uid=%u entry=\"%s\" userid=\"%s\" }",
 		   mboxname, uid, entry, userid);
-    return buf.s;
+    return buf_cstring(&buf);
 }
 #endif
 
@@ -809,8 +817,8 @@ static int find_p(void *rock, const char *key, int keylen,
     unsigned int uid;
     int r;
 
-    r = split_key(key, keylen, &mboxname, &uid,
-		  &entry, &userid);
+    r = split_key(frock->d, key, keylen, &mboxname,
+		  &uid, &entry, &userid);
     if (r < 0)
 	return 0;
 
@@ -834,11 +842,11 @@ static int find_cb(void *rock, const char *key, int keylen,
 
 #if DEBUG
     syslog(LOG_ERR, "find_cb: found key %s in %s",
-	    key_as_string(key, keylen), frock->d->filename);
+	    key_as_string(frock->d, key, keylen), frock->d->filename);
 #endif
 
-    r = split_key(key, keylen, &mboxname, &uid,
-		  &entry, &userid);
+    r = split_key(frock->d, key, keylen, &mboxname,
+		  &uid, &entry, &userid);
     if (r)
 	return r;
 
@@ -2146,7 +2154,7 @@ static int write_entry(const char *mboxname,
 
 #if DEBUG
 	syslog(LOG_ERR, "write_entry: deleting key %s from %s",
-		key_as_string(key, keylen), d->filename);
+		key_as_string(d, key, keylen), d->filename);
 #endif
 
 	do {
@@ -2178,7 +2186,7 @@ static int write_entry(const char *mboxname,
 
 #if DEBUG
 	syslog(LOG_ERR, "write_entry: storing key %s to %s",
-		key_as_string(key, keylen), d->filename);
+		key_as_string(d, key, keylen), d->filename);
 #endif
 
 	do {
@@ -2858,14 +2866,38 @@ int annotatemore_rename(const char *oldmboxname, const char *newmboxname,
 			const char *olduserid, const char *newuserid)
 {
     int r;
+    char *oldfname = NULL, *newfname = NULL;
 
     r = annotatemore_begin();
-    if (!r)
-	r = _annotate_rewrite(oldmboxname, 0, olduserid,
-			      newmboxname, 0, newuserid,
-			      /*copy*/0);
-    if (!r)
-	r = annotatemore_commit();
+    if (r)
+	goto out;
+
+    r = _annotate_rewrite(oldmboxname, 0, olduserid,
+			  newmboxname, 0, newuserid,
+			  /*copy*/0);
+    if (r)
+	goto out;
+
+    r = annotate_dbname(oldmboxname, &oldfname);
+    if (r)
+	goto out;
+    r = annotate_dbname(newmboxname, &newfname);
+    if (r)
+	goto out;
+
+    r = DB->rename(oldfname, newfname);
+    if (r) {
+	r = IMAP_IOERROR;
+	goto out;
+    }
+
+    r = annotatemore_commit();
+
+out:
+    free(oldfname);
+    free(newfname);
+    if (r)
+	annotatemore_abort();
     return r;
 }
 
