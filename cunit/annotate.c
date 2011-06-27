@@ -39,6 +39,18 @@ static void config_read_string(const char *s)
     close(fd);
 }
 
+static int fexists(const char *fname)
+{
+    struct stat sb;
+    int r;
+
+    r = stat(fname, &sb);
+    if (r < 0)
+	r = -errno;
+    return r;
+}
+
+
 static void fetch_cb(const char *mboxname, uint32_t uid,
 		     const char *entry, struct attvaluelist *avlist,
 		     void *rock)
@@ -492,6 +504,8 @@ static void test_delete(void)
     struct buf val = BUF_INITIALIZER;
     struct buf val2 = BUF_INITIALIZER;
 
+    CU_ASSERT_EQUAL(fexists(DBDIR"/data/user/smurf/annotations.db"), -ENOENT);
+
     annotatemore_open();
 
     memset(&mailbox, 0, sizeof(mailbox));
@@ -558,10 +572,14 @@ static void test_delete(void)
     CU_ASSERT_STRING_EQUAL(buf_cstring(&val2), VALUE2);
     buf_free(&val2);
 
+    CU_ASSERT_EQUAL(fexists(DBDIR"/data/user/smurf/annotations.db"), 0);
+
     /* delete all the entries associated with the mailbox */
 
     r = annotatemore_delete(MBOXNAME1_INT);
     CU_ASSERT_EQUAL(r, 0);
+
+    CU_ASSERT_EQUAL(fexists(DBDIR"/data/user/smurf/annotations.db"), -ENOENT);
 
     /* check that the values are gone */
 
@@ -581,6 +599,8 @@ static void test_delete(void)
     buf_free(&val2);
 
     annotatemore_close();
+
+    CU_ASSERT_EQUAL(fexists(DBDIR"/data/user/smurf/annotations.db"), -ENOENT);
 
     strarray_fini(&entries);
     strarray_fini(&attribs);
