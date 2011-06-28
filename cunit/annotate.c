@@ -8,6 +8,7 @@
 #include "libcyr_cfg.h"
 #include "annotate.h"
 #include "mboxlist.h"
+#include "imap_err.h"
 
 #define DBDIR		"test-dbdir"
 #define MBOXNAME1_INT   "user.smurf"
@@ -70,6 +71,37 @@ static void fetch_cb(const char *mboxname, uint32_t uid,
     }
 
     strarray_appendm(results, buf_release(&buf));
+}
+
+static void test_begin_without_open(void)
+{
+    int r;
+
+    /* no call to annotatemore_open() here */
+
+    r = annotatemore_begin();
+    CU_ASSERT_EQUAL(r, IMAP_INTERNAL);
+
+    r = annotatemore_commit();
+    CU_ASSERT_EQUAL(r, IMAP_INTERNAL);
+}
+
+static void test_commit_without_begin(void)
+{
+    int r;
+
+    annotatemore_open();
+
+    r = annotatemore_commit();
+    CU_ASSERT_EQUAL(r, IMAP_INTERNAL);
+
+    r = annotatemore_begin();
+    CU_ASSERT_EQUAL(r, 0);
+
+    r = annotatemore_commit();
+    CU_ASSERT_EQUAL(r, 0);
+
+    annotatemore_close();
 }
 
 static void test_getset_server_shared(void)
