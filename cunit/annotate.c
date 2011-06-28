@@ -104,6 +104,51 @@ static void test_commit_without_begin(void)
     annotatemore_close();
 }
 
+static void test_store_without_begin(void)
+{
+    int r;
+    annotate_scope_t scope;
+    strarray_t entries = STRARRAY_INITIALIZER;
+    strarray_t attribs = STRARRAY_INITIALIZER;
+    struct entryattlist *ealist = NULL;
+    struct buf val = BUF_INITIALIZER;
+    struct buf val2 = BUF_INITIALIZER;
+
+    annotatemore_open();
+
+    annotate_scope_init_server(&scope);
+
+    strarray_append(&entries, COMMENT);
+    strarray_append(&attribs, SHARED);
+
+    /* store should fail as we're not in a txn */
+
+    buf_appendcstr(&val, VALUE0);
+    setentryatt(&ealist, COMMENT, SHARED, &val);
+    isadmin = 1;	/* pretend to be admin */
+    r = annotatemore_store(&scope, ealist,
+		           &namespace, isadmin, userid, auth_state);
+    isadmin = 0;
+    CU_ASSERT_EQUAL(r, IMAP_INTERNAL);
+
+    /* commit should fail as we're not in a txn */
+    r = annotatemore_commit();
+    CU_ASSERT_EQUAL(r, IMAP_INTERNAL);
+
+    /* check that the failed _store did not store */
+    r = annotatemore_lookup(/*mboxname*/"", COMMENT, /*userid*/"", &val2);
+    CU_ASSERT_EQUAL_FATAL(r, 0);
+    CU_ASSERT_PTR_NULL(val2.s);
+
+    annotatemore_close();
+
+    strarray_fini(&entries);
+    strarray_fini(&attribs);
+    buf_free(&val);
+    buf_free(&val2);
+    freeentryatts(ealist);
+}
+
 static void test_getset_server_shared(void)
 {
     int r;
