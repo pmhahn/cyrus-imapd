@@ -17,6 +17,7 @@
 #define MBOXNAME2_EXT   "user.smurfette"
 #define PARTITION	"default"
 #define COMMENT		"/comment"
+#define EXENTRY		"/vendor/example.com/a-non-default-entry"
 #define SHARED		"value.shared"
 #define VALUE0		"Hello World"
 #define VALUE1		"lorem ipsum"
@@ -1038,6 +1039,108 @@ static void test_msg_copy(void)
     strarray_fini(&attribs);
     buf_free(&val);
 }
+
+// static void test_missing_definitions_file(void)
+// {
+//     char *old;
+// 
+//     old = imapopts[IMAPOPT_ANNOTATION_DEFINITIONS].val.s;
+//     imapopts[IMAPOPT_ANNOTATION_DEFINITIONS].val.s = "/no/such/file";
+// 
+//     annotatemore_init(NULL, NULL);
+//     imapopts[IMAPOPT_ANNOTATION_DEFINITIONS].val.s = old;
+// }
+
+static void test_getset_server_undefined(void)
+{
+    int r;
+    annotate_scope_t scope;
+    strarray_t entries = STRARRAY_INITIALIZER;
+    strarray_t attribs = STRARRAY_INITIALIZER;
+    strarray_t results = STRARRAY_INITIALIZER;
+    struct entryattlist *ealist = NULL;
+    struct buf val = BUF_INITIALIZER;
+    struct buf val2 = BUF_INITIALIZER;
+
+    annotatemore_open();
+
+    annotate_scope_init_server(&scope);
+
+    strarray_append(&entries, EXENTRY);
+    strarray_append(&attribs, SHARED);
+
+    /* check that there is no value initially */
+
+    r = annotatemore_fetch(&scope,
+		           &entries, &attribs,
+		           &namespace, isadmin, userid, auth_state,
+		           fetch_cb, &results,
+		           NULL);
+    CU_ASSERT_EQUAL(r, 0);
+    CU_ASSERT_EQUAL_FATAL(results.count, 1);
+#define EXPECTED \
+	   "mboxname=\"\" " \
+	   "uid=0 " \
+	   "entry=\"" EXENTRY "\" " \
+	   SHARED "=NIL"
+    CU_ASSERT_STRING_EQUAL(results.data[0], EXPECTED);
+#undef EXPECTED
+    strarray_truncate(&results, 0);
+
+    r = annotatemore_lookup(/*mboxname*/"", EXENTRY, /*userid*/"", &val);
+    CU_ASSERT_EQUAL(r, 0);
+    CU_ASSERT_PTR_NULL(val.s);
+
+    r = annotatemore_begin();
+    CU_ASSERT_EQUAL(r, 0);
+
+    /* setting a value should fail */
+
+    buf_appendcstr(&val, VALUE0);
+    setentryatt(&ealist, EXENTRY, SHARED, &val);
+    isadmin = 1;	/* pretend to be admin */
+    r = annotatemore_store(&scope, ealist,
+		           &namespace, isadmin, userid, auth_state);
+    isadmin = 0;
+    CU_ASSERT_EQUAL(r, IMAP_PERMISSION_DENIED);
+    freeentryatts(ealist);
+    ealist = NULL;
+
+    r = annotatemore_commit();
+    CU_ASSERT_EQUAL(r, 0);
+
+    /* check that there is no value */
+
+    r = annotatemore_fetch(&scope,
+		           &entries, &attribs,
+		           &namespace, isadmin, userid, auth_state,
+		           fetch_cb, &results,
+		           NULL);
+    CU_ASSERT_EQUAL(r, 0);
+    CU_ASSERT_EQUAL_FATAL(results.count, 1);
+#define EXPECTED \
+	   "mboxname=\"\" " \
+	   "uid=0 " \
+	   "entry=\"" EXENTRY "\" " \
+	   SHARED "=NIL"
+    CU_ASSERT_STRING_EQUAL(results.data[0], EXPECTED);
+#undef EXPECTED
+    strarray_truncate(&results, 0);
+
+    buf_free(&val);
+    r = annotatemore_lookup(/*mboxname*/"", EXENTRY, /*userid*/"", &val);
+    CU_ASSERT_EQUAL(r, 0);
+    CU_ASSERT_PTR_NULL(val.s);
+
+    annotatemore_close();
+
+    strarray_fini(&entries);
+    strarray_fini(&attribs);
+    strarray_fini(&results);
+    buf_free(&val);
+    buf_free(&val2);
+}
+
 
 static int set_up(void)
 {
