@@ -621,7 +621,7 @@ void annotatemore_abort(void)
     for (d = all_dbs_head ; d ; d = d->next) {
 	if (d->txn) {
 #if DEBUG
-	    syslog(LOG_ERR, "Committing annotations db %s\n", d->filename);
+	    syslog(LOG_ERR, "Aborting annotations db %s\n", d->filename);
 #endif
 	    DB->abort(d->db, d->txn);
 	}
