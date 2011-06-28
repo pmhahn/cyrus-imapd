@@ -124,6 +124,8 @@ static void test_getset_server_shared(void)
 		           &namespace, isadmin, userid, auth_state);
     isadmin = 0;
     CU_ASSERT_EQUAL(r, 0);
+    freeentryatts(ealist);
+    ealist = NULL;
 
     /* check that we can fetch the value back in the same txn */
     r = annotatemore_fetch(&scope,
@@ -202,13 +204,53 @@ static void test_getset_server_shared(void)
     CU_ASSERT_STRING_EQUAL(buf_cstring(&val2), VALUE0);
     buf_free(&val2);
 
+    /* delete the value */
+
+    r = annotatemore_begin();
+    CU_ASSERT_EQUAL(r, 0);
+
+    buf_free(&val);
+    setentryatt(&ealist, COMMENT, SHARED, &val);
+    isadmin = 1;	/* pretend to be admin */
+    r = annotatemore_store(&scope, ealist,
+		           &namespace, isadmin, userid, auth_state);
+    isadmin = 0;
+    CU_ASSERT_EQUAL(r, 0);
+    freeentryatts(ealist);
+    ealist = NULL;
+
+    r = annotatemore_commit();
+    CU_ASSERT_EQUAL(r, 0);
+
+    /* check that there is no value any more */
+
+    r = annotatemore_fetch(&scope,
+		           &entries, &attribs,
+		           &namespace, isadmin, userid, auth_state,
+		           fetch_cb, &results,
+		           NULL);
+    CU_ASSERT_EQUAL(r, 0);
+    CU_ASSERT_EQUAL_FATAL(results.count, 1);
+#define EXPECTED \
+	   "mboxname=\"\" " \
+	   "uid=0 " \
+	   "entry=\"" COMMENT "\" " \
+	   SHARED "=NIL"
+    CU_ASSERT_STRING_EQUAL(results.data[0], EXPECTED);
+#undef EXPECTED
+    strarray_truncate(&results, 0);
+
+    r = annotatemore_lookup(/*mboxname*/"", COMMENT, /*userid*/"", &val);
+    CU_ASSERT_EQUAL(r, 0);
+    CU_ASSERT_PTR_NULL(val.s);
+
+
     annotatemore_close();
 
     strarray_fini(&entries);
     strarray_fini(&attribs);
     strarray_fini(&results);
     buf_free(&val);
-    freeentryatts(ealist);
 }
 
 
@@ -262,6 +304,8 @@ static void test_getset_mailbox_shared(void)
     r = annotatemore_store(&scope, ealist,
 		           &namespace, isadmin, userid, auth_state);
     CU_ASSERT_EQUAL(r, 0);
+    freeentryatts(ealist);
+    ealist = NULL;
 
     /* check that we can fetch the value back in the same txn */
     r = annotatemore_fetch(&scope,
@@ -340,13 +384,51 @@ static void test_getset_mailbox_shared(void)
     CU_ASSERT_STRING_EQUAL(buf_cstring(&val2), VALUE0);
     buf_free(&val2);
 
+    /* delete the value */
+
+    r = annotatemore_begin();
+    CU_ASSERT_EQUAL(r, 0);
+
+    buf_free(&val);
+    setentryatt(&ealist, COMMENT, SHARED, &val);
+    r = annotatemore_store(&scope, ealist,
+		           &namespace, isadmin, userid, auth_state);
+    CU_ASSERT_EQUAL(r, 0);
+    freeentryatts(ealist);
+    ealist = NULL;
+
+    r = annotatemore_commit();
+    CU_ASSERT_EQUAL(r, 0);
+
+    /* check that there is no value any more */
+
+    r = annotatemore_fetch(&scope,
+		           &entries, &attribs,
+		           &namespace, isadmin, userid, auth_state,
+		           fetch_cb, &results,
+		           NULL);
+    CU_ASSERT_EQUAL(r, 0);
+    CU_ASSERT_EQUAL_FATAL(results.count, 1);
+#define EXPECTED \
+	   "mboxname=\"" MBOXNAME1_EXT "\" " \
+	   "uid=0 " \
+	   "entry=\"" COMMENT "\" " \
+	   SHARED "=NIL"
+    CU_ASSERT_STRING_EQUAL(results.data[0], EXPECTED);
+#undef EXPECTED
+    strarray_truncate(&results, 0);
+
+    buf_free(&val);
+    r = annotatemore_lookup(MBOXNAME1_INT, COMMENT, /*userid*/"", &val);
+    CU_ASSERT_EQUAL(r, 0);
+    CU_ASSERT_PTR_NULL(val.s);
+
     annotatemore_close();
 
     strarray_fini(&entries);
     strarray_fini(&attribs);
     strarray_fini(&results);
     buf_free(&val);
-    freeentryatts(ealist);
 }
 
 
@@ -404,6 +486,8 @@ static void test_getset_message_shared(void)
     r = annotatemore_store(&scope, ealist,
 		           &namespace, isadmin, userid, auth_state);
     CU_ASSERT_EQUAL(r, 0);
+    freeentryatts(ealist);
+    ealist = NULL;
 
     /* check that we can fetch the value back in the same txn */
     r = annotatemore_fetch(&scope,
@@ -482,13 +566,52 @@ static void test_getset_message_shared(void)
     CU_ASSERT_STRING_EQUAL(buf_cstring(&val2), VALUE0);
     buf_free(&val2);
 
+    /* delete the value */
+
+    r = annotatemore_begin();
+    CU_ASSERT_EQUAL(r, 0);
+
+    buf_free(&val);
+    setentryatt(&ealist, COMMENT, SHARED, &val);
+    r = annotatemore_store(&scope, ealist,
+		           &namespace, isadmin, userid, auth_state);
+    CU_ASSERT_EQUAL(r, 0);
+    freeentryatts(ealist);
+    ealist = NULL;
+
+    r = annotatemore_commit();
+    CU_ASSERT_EQUAL(r, 0);
+
+    /* check that there is no value any more */
+
+    r = annotatemore_fetch(&scope,
+		           &entries, &attribs,
+		           &namespace, isadmin, userid, auth_state,
+		           fetch_cb, &results,
+		           NULL);
+    CU_ASSERT_EQUAL(r, 0);
+    CU_ASSERT_EQUAL_FATAL(results.count, 1);
+#define EXPECTED \
+	   "mboxname=\"" MBOXNAME1_EXT "\" " \
+	   "uid=42 " \
+	   "entry=\"" COMMENT "\" " \
+	   SHARED "=NIL"
+    CU_ASSERT_STRING_EQUAL(results.data[0], EXPECTED);
+#undef EXPECTED
+    strarray_truncate(&results, 0);
+
+    buf_free(&val);
+    r = annotatemore_msg_lookup(MBOXNAME1_INT, 42, COMMENT, /*userid*/"", &val);
+    CU_ASSERT_EQUAL(r, 0);
+    CU_ASSERT_PTR_NULL(val.s);
+
+
     annotatemore_close();
 
     strarray_fini(&entries);
     strarray_fini(&attribs);
     strarray_fini(&results);
     buf_free(&val);
-    freeentryatts(ealist);
 }
 
 
