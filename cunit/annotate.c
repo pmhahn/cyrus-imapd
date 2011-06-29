@@ -18,8 +18,10 @@
 #define PARTITION	"default"
 #define COMMENT		"/comment"
 #define EXENTRY		"/vendor/example.com/a-non-default-entry"
-#define SHARED		"value.shared"
+#define VALUE_SHARED	"value.shared"
+#define SIZE_SHARED	"size.shared"
 #define VALUE0		"Hello World"
+#define LENGTH0		"11"
 #define VALUE1		"lorem ipsum"
 #define VALUE2		"dolor sit amet"
 #define ACL		"anyone\tlrswipkxtecdan\t"
@@ -140,12 +142,12 @@ static void test_store_without_begin(void)
     annotate_scope_init_server(&scope);
 
     strarray_append(&entries, COMMENT);
-    strarray_append(&attribs, SHARED);
+    strarray_append(&attribs, VALUE_SHARED);
 
     /* store should fail as we're not in a txn */
 
     buf_appendcstr(&val, VALUE0);
-    setentryatt(&ealist, COMMENT, SHARED, &val);
+    setentryatt(&ealist, COMMENT, VALUE_SHARED, &val);
     isadmin = 1;	/* pretend to be admin */
     r = annotatemore_store(&scope, ealist,
 		           &namespace, isadmin, userid, auth_state);
@@ -188,7 +190,7 @@ static void test_getset_server_shared(void)
     annotate_scope_init_server(&scope);
 
     strarray_append(&entries, COMMENT);
-    strarray_append(&attribs, SHARED);
+    strarray_append(&attribs, VALUE_SHARED);
 
     /* check that there is no value initially */
 
@@ -203,7 +205,7 @@ static void test_getset_server_shared(void)
 	   "mboxname=\"\" " \
 	   "uid=0 " \
 	   "entry=\"" COMMENT "\" " \
-	   SHARED "=NIL"
+	   VALUE_SHARED "=NIL"
     CU_ASSERT_STRING_EQUAL(results.data[0], EXPECTED);
 #undef EXPECTED
     strarray_truncate(&results, 0);
@@ -218,7 +220,7 @@ static void test_getset_server_shared(void)
     /* set a value */
 
     buf_appendcstr(&val, VALUE0);
-    setentryatt(&ealist, COMMENT, SHARED, &val);
+    setentryatt(&ealist, COMMENT, VALUE_SHARED, &val);
     isadmin = 1;	/* pretend to be admin */
     r = annotatemore_store(&scope, ealist,
 		           &namespace, isadmin, userid, auth_state);
@@ -239,7 +241,7 @@ static void test_getset_server_shared(void)
 	   "mboxname=\"\" " \
 	   "uid=0 " \
 	   "entry=\"" COMMENT "\" " \
-	   SHARED "=\"" VALUE0 "\""
+	   VALUE_SHARED "=\"" VALUE0 "\""
     CU_ASSERT_STRING_EQUAL(results.data[0], EXPECTED);
 #undef EXPECTED
     strarray_truncate(&results, 0);
@@ -265,7 +267,7 @@ static void test_getset_server_shared(void)
 	   "mboxname=\"\" " \
 	   "uid=0 " \
 	   "entry=\"" COMMENT "\" " \
-	   SHARED "=\"" VALUE0 "\""
+	   VALUE_SHARED "=\"" VALUE0 "\""
     CU_ASSERT_STRING_EQUAL(results.data[0], EXPECTED);
 #undef EXPECTED
     strarray_truncate(&results, 0);
@@ -293,7 +295,7 @@ static void test_getset_server_shared(void)
 	   "mboxname=\"\" " \
 	   "uid=0 " \
 	   "entry=\"" COMMENT "\" " \
-	   SHARED "=\"" VALUE0 "\""
+	   VALUE_SHARED "=\"" VALUE0 "\""
     CU_ASSERT_STRING_EQUAL(results.data[0], EXPECTED);
 #undef EXPECTED
     strarray_truncate(&results, 0);
@@ -310,7 +312,7 @@ static void test_getset_server_shared(void)
     CU_ASSERT_EQUAL(r, 0);
 
     buf_free(&val);
-    setentryatt(&ealist, COMMENT, SHARED, &val);
+    setentryatt(&ealist, COMMENT, VALUE_SHARED, &val);
     isadmin = 1;	/* pretend to be admin */
     r = annotatemore_store(&scope, ealist,
 		           &namespace, isadmin, userid, auth_state);
@@ -335,7 +337,7 @@ static void test_getset_server_shared(void)
 	   "mboxname=\"\" " \
 	   "uid=0 " \
 	   "entry=\"" COMMENT "\" " \
-	   SHARED "=NIL"
+	   VALUE_SHARED "=NIL"
     CU_ASSERT_STRING_EQUAL(results.data[0], EXPECTED);
 #undef EXPECTED
     strarray_truncate(&results, 0);
@@ -372,7 +374,7 @@ static void test_getset_mailbox_shared(void)
     annotate_scope_init_mailbox(&scope, MBOXNAME1_INT);
 
     strarray_append(&entries, COMMENT);
-    strarray_append(&attribs, SHARED);
+    strarray_append(&attribs, VALUE_SHARED);
 
     /* check that there is no value initially */
 
@@ -387,7 +389,7 @@ static void test_getset_mailbox_shared(void)
 	   "mboxname=\"" MBOXNAME1_EXT "\" " \
 	   "uid=0 " \
 	   "entry=\"" COMMENT "\" " \
-	   SHARED "=NIL"
+	   VALUE_SHARED "=NIL"
     CU_ASSERT_STRING_EQUAL(results.data[0], EXPECTED);
 #undef EXPECTED
     strarray_truncate(&results, 0);
@@ -402,7 +404,7 @@ static void test_getset_mailbox_shared(void)
     /* set a value */
 
     buf_appendcstr(&val, VALUE0);
-    setentryatt(&ealist, COMMENT, SHARED, &val);
+    setentryatt(&ealist, COMMENT, VALUE_SHARED, &val);
     r = annotatemore_store(&scope, ealist,
 		           &namespace, isadmin, userid, auth_state);
     CU_ASSERT_EQUAL(r, 0);
@@ -421,7 +423,7 @@ static void test_getset_mailbox_shared(void)
 	   "mboxname=\"" MBOXNAME1_EXT "\" " \
 	   "uid=0 " \
 	   "entry=\"" COMMENT "\" " \
-	   SHARED "=\"" VALUE0 "\""
+	   VALUE_SHARED "=\"" VALUE0 "\""
     CU_ASSERT_STRING_EQUAL(results.data[0], EXPECTED);
 #undef EXPECTED
     strarray_truncate(&results, 0);
@@ -447,7 +449,7 @@ static void test_getset_mailbox_shared(void)
 	   "mboxname=\"" MBOXNAME1_EXT "\" " \
 	   "uid=0 " \
 	   "entry=\"" COMMENT "\" " \
-	   SHARED "=\"" VALUE0 "\""
+	   VALUE_SHARED "=\"" VALUE0 "\""
     CU_ASSERT_STRING_EQUAL(results.data[0], EXPECTED);
 #undef EXPECTED
     strarray_truncate(&results, 0);
@@ -475,7 +477,7 @@ static void test_getset_mailbox_shared(void)
 	   "mboxname=\"" MBOXNAME1_EXT "\" " \
 	   "uid=0 " \
 	   "entry=\"" COMMENT "\" " \
-	   SHARED "=\"" VALUE0 "\""
+	   VALUE_SHARED "=\"" VALUE0 "\""
     CU_ASSERT_STRING_EQUAL(results.data[0], EXPECTED);
 #undef EXPECTED
     strarray_truncate(&results, 0);
@@ -492,7 +494,7 @@ static void test_getset_mailbox_shared(void)
     CU_ASSERT_EQUAL(r, 0);
 
     buf_free(&val);
-    setentryatt(&ealist, COMMENT, SHARED, &val);
+    setentryatt(&ealist, COMMENT, VALUE_SHARED, &val);
     r = annotatemore_store(&scope, ealist,
 		           &namespace, isadmin, userid, auth_state);
     CU_ASSERT_EQUAL(r, 0);
@@ -515,7 +517,7 @@ static void test_getset_mailbox_shared(void)
 	   "mboxname=\"" MBOXNAME1_EXT "\" " \
 	   "uid=0 " \
 	   "entry=\"" COMMENT "\" " \
-	   SHARED "=NIL"
+	   VALUE_SHARED "=NIL"
     CU_ASSERT_STRING_EQUAL(results.data[0], EXPECTED);
 #undef EXPECTED
     strarray_truncate(&results, 0);
@@ -556,7 +558,7 @@ static void test_getset_message_shared(void)
     annotate_scope_init_message(&scope, &mailbox, 42);
 
     strarray_append(&entries, COMMENT);
-    strarray_append(&attribs, SHARED);
+    strarray_append(&attribs, VALUE_SHARED);
 
     /* check that there is no value initially */
 
@@ -571,7 +573,7 @@ static void test_getset_message_shared(void)
 	   "mboxname=\"" MBOXNAME1_EXT "\" " \
 	   "uid=42 " \
 	   "entry=\"" COMMENT "\" " \
-	   SHARED "=NIL"
+	   VALUE_SHARED "=NIL"
     CU_ASSERT_STRING_EQUAL(results.data[0], EXPECTED);
 #undef EXPECTED
     strarray_truncate(&results, 0);
@@ -586,7 +588,7 @@ static void test_getset_message_shared(void)
     /* set a value */
 
     buf_appendcstr(&val, VALUE0);
-    setentryatt(&ealist, COMMENT, SHARED, &val);
+    setentryatt(&ealist, COMMENT, VALUE_SHARED, &val);
     r = annotatemore_store(&scope, ealist,
 		           &namespace, isadmin, userid, auth_state);
     CU_ASSERT_EQUAL(r, 0);
@@ -605,7 +607,7 @@ static void test_getset_message_shared(void)
 	   "mboxname=\"" MBOXNAME1_EXT "\" " \
 	   "uid=42 " \
 	   "entry=\"" COMMENT "\" " \
-	   SHARED "=\"" VALUE0 "\""
+	   VALUE_SHARED "=\"" VALUE0 "\""
     CU_ASSERT_STRING_EQUAL(results.data[0], EXPECTED);
 #undef EXPECTED
     strarray_truncate(&results, 0);
@@ -631,7 +633,7 @@ static void test_getset_message_shared(void)
 	   "mboxname=\"" MBOXNAME1_EXT "\" " \
 	   "uid=42 " \
 	   "entry=\"" COMMENT "\" " \
-	   SHARED "=\"" VALUE0 "\""
+	   VALUE_SHARED "=\"" VALUE0 "\""
     CU_ASSERT_STRING_EQUAL(results.data[0], EXPECTED);
 #undef EXPECTED
     strarray_truncate(&results, 0);
@@ -659,7 +661,7 @@ static void test_getset_message_shared(void)
 	   "mboxname=\"" MBOXNAME1_EXT "\" " \
 	   "uid=42 " \
 	   "entry=\"" COMMENT "\" " \
-	   SHARED "=\"" VALUE0 "\""
+	   VALUE_SHARED "=\"" VALUE0 "\""
     CU_ASSERT_STRING_EQUAL(results.data[0], EXPECTED);
 #undef EXPECTED
     strarray_truncate(&results, 0);
@@ -676,7 +678,7 @@ static void test_getset_message_shared(void)
     CU_ASSERT_EQUAL(r, 0);
 
     buf_free(&val);
-    setentryatt(&ealist, COMMENT, SHARED, &val);
+    setentryatt(&ealist, COMMENT, VALUE_SHARED, &val);
     r = annotatemore_store(&scope, ealist,
 		           &namespace, isadmin, userid, auth_state);
     CU_ASSERT_EQUAL(r, 0);
@@ -699,7 +701,7 @@ static void test_getset_message_shared(void)
 	   "mboxname=\"" MBOXNAME1_EXT "\" " \
 	   "uid=42 " \
 	   "entry=\"" COMMENT "\" " \
-	   SHARED "=NIL"
+	   VALUE_SHARED "=NIL"
     CU_ASSERT_STRING_EQUAL(results.data[0], EXPECTED);
 #undef EXPECTED
     strarray_truncate(&results, 0);
@@ -741,7 +743,7 @@ static void test_delete(void)
     mailbox.acl = ACL;
 
     strarray_append(&entries, COMMENT);
-    strarray_append(&attribs, SHARED);
+    strarray_append(&attribs, VALUE_SHARED);
 
     r = annotatemore_begin();
     CU_ASSERT_EQUAL(r, 0);
@@ -749,7 +751,7 @@ static void test_delete(void)
     /* set some values */
 
     buf_appendcstr(&val, VALUE0);
-    setentryatt(&ealist, COMMENT, SHARED, &val);
+    setentryatt(&ealist, COMMENT, VALUE_SHARED, &val);
     annotate_scope_init_mailbox(&scope, MBOXNAME1_INT);
     r = annotatemore_store(&scope, ealist,
 		           &namespace, isadmin, userid, auth_state);
@@ -759,7 +761,7 @@ static void test_delete(void)
 
     buf_reset(&val);
     buf_appendcstr(&val, VALUE1);
-    setentryatt(&ealist, COMMENT, SHARED, &val);
+    setentryatt(&ealist, COMMENT, VALUE_SHARED, &val);
     annotate_scope_init_message(&scope, &mailbox, 42);
     r = annotatemore_store(&scope, ealist,
 		           &namespace, isadmin, userid, auth_state);
@@ -769,7 +771,7 @@ static void test_delete(void)
 
     buf_reset(&val);
     buf_appendcstr(&val, VALUE2);
-    setentryatt(&ealist, COMMENT, SHARED, &val);
+    setentryatt(&ealist, COMMENT, VALUE_SHARED, &val);
     annotate_scope_init_message(&scope, &mailbox, 127);
     r = annotatemore_store(&scope, ealist,
 		           &namespace, isadmin, userid, auth_state);
@@ -858,7 +860,7 @@ static void test_rename(void)
     mailbox.acl = ACL;
 
     strarray_append(&entries, COMMENT);
-    strarray_append(&attribs, SHARED);
+    strarray_append(&attribs, VALUE_SHARED);
 
     r = annotatemore_begin();
     CU_ASSERT_EQUAL(r, 0);
@@ -866,7 +868,7 @@ static void test_rename(void)
     /* set some values */
 
     buf_appendcstr(&val, VALUE0);
-    setentryatt(&ealist, COMMENT, SHARED, &val);
+    setentryatt(&ealist, COMMENT, VALUE_SHARED, &val);
     annotate_scope_init_mailbox(&scope, MBOXNAME1_INT);
     r = annotatemore_store(&scope, ealist,
 		           &namespace, isadmin, userid, auth_state);
@@ -876,7 +878,7 @@ static void test_rename(void)
 
     buf_reset(&val);
     buf_appendcstr(&val, VALUE1);
-    setentryatt(&ealist, COMMENT, SHARED, &val);
+    setentryatt(&ealist, COMMENT, VALUE_SHARED, &val);
     annotate_scope_init_message(&scope, &mailbox, 42);
     r = annotatemore_store(&scope, ealist,
 		           &namespace, isadmin, userid, auth_state);
@@ -886,7 +888,7 @@ static void test_rename(void)
 
     buf_reset(&val);
     buf_appendcstr(&val, VALUE2);
-    setentryatt(&ealist, COMMENT, SHARED, &val);
+    setentryatt(&ealist, COMMENT, VALUE_SHARED, &val);
     annotate_scope_init_message(&scope, &mailbox, 127);
     r = annotatemore_store(&scope, ealist,
 		           &namespace, isadmin, userid, auth_state);
@@ -999,7 +1001,7 @@ static void test_msg_copy(void)
     mailbox.acl = ACL;
 
     strarray_append(&entries, COMMENT);
-    strarray_append(&attribs, SHARED);
+    strarray_append(&attribs, VALUE_SHARED);
 
     r = annotatemore_begin();
     CU_ASSERT_EQUAL(r, 0);
@@ -1007,7 +1009,7 @@ static void test_msg_copy(void)
     /* set a value */
 
     buf_appendcstr(&val, VALUE0);
-    setentryatt(&ealist, COMMENT, SHARED, &val);
+    setentryatt(&ealist, COMMENT, VALUE_SHARED, &val);
     annotate_scope_init_message(&scope, &mailbox, 17);
     r = annotatemore_store(&scope, ealist,
 		           &namespace, isadmin, userid, auth_state);
@@ -1101,7 +1103,7 @@ static void test_getset_server_undefined(void)
     annotate_scope_init_server(&scope);
 
     strarray_append(&entries, EXENTRY);
-    strarray_append(&attribs, SHARED);
+    strarray_append(&attribs, VALUE_SHARED);
 
     /* check that there is no value initially */
 
@@ -1116,7 +1118,7 @@ static void test_getset_server_undefined(void)
 	   "mboxname=\"\" " \
 	   "uid=0 " \
 	   "entry=\"" EXENTRY "\" " \
-	   SHARED "=NIL"
+	   VALUE_SHARED "=NIL"
     CU_ASSERT_STRING_EQUAL(results.data[0], EXPECTED);
 #undef EXPECTED
     strarray_truncate(&results, 0);
@@ -1131,7 +1133,7 @@ static void test_getset_server_undefined(void)
     /* setting a value should fail */
 
     buf_appendcstr(&val, VALUE0);
-    setentryatt(&ealist, EXENTRY, SHARED, &val);
+    setentryatt(&ealist, EXENTRY, VALUE_SHARED, &val);
     isadmin = 1;	/* pretend to be admin */
     r = annotatemore_store(&scope, ealist,
 		           &namespace, isadmin, userid, auth_state);
@@ -1156,7 +1158,7 @@ static void test_getset_server_undefined(void)
 	   "mboxname=\"\" " \
 	   "uid=0 " \
 	   "entry=\"" EXENTRY "\" " \
-	   SHARED "=NIL"
+	   VALUE_SHARED "=NIL"
     CU_ASSERT_STRING_EQUAL(results.data[0], EXPECTED);
 #undef EXPECTED
     strarray_truncate(&results, 0);
@@ -1196,7 +1198,8 @@ static void test_getset_server_defined(void)
     annotate_scope_init_server(&scope);
 
     strarray_append(&entries, EXENTRY);
-    strarray_append(&attribs, SHARED);
+    strarray_append(&attribs, VALUE_SHARED);
+    strarray_append(&attribs, SIZE_SHARED);
 
     /* check that there is no value initially */
 
@@ -1211,7 +1214,8 @@ static void test_getset_server_defined(void)
 	   "mboxname=\"\" " \
 	   "uid=0 " \
 	   "entry=\"" EXENTRY "\" " \
-	   SHARED "=NIL"
+	   VALUE_SHARED "=NIL " \
+	   SIZE_SHARED "=\"0\""
     CU_ASSERT_STRING_EQUAL(results.data[0], EXPECTED);
 #undef EXPECTED
     strarray_truncate(&results, 0);
@@ -1226,7 +1230,7 @@ static void test_getset_server_defined(void)
     /* set a value */
 
     buf_appendcstr(&val, VALUE0);
-    setentryatt(&ealist, EXENTRY, SHARED, &val);
+    setentryatt(&ealist, EXENTRY, VALUE_SHARED, &val);
     isadmin = 1;	/* pretend to be admin */
     r = annotatemore_store(&scope, ealist,
 		           &namespace, isadmin, userid, auth_state);
@@ -1247,7 +1251,8 @@ static void test_getset_server_defined(void)
 	   "mboxname=\"\" " \
 	   "uid=0 " \
 	   "entry=\"" EXENTRY "\" " \
-	   SHARED "=\"" VALUE0 "\""
+	   VALUE_SHARED "=\"" VALUE0 "\" " \
+	   SIZE_SHARED "=\"" LENGTH0 "\""
     CU_ASSERT_STRING_EQUAL(results.data[0], EXPECTED);
 #undef EXPECTED
     strarray_truncate(&results, 0);
@@ -1273,7 +1278,8 @@ static void test_getset_server_defined(void)
 	   "mboxname=\"\" " \
 	   "uid=0 " \
 	   "entry=\"" EXENTRY "\" " \
-	   SHARED "=\"" VALUE0 "\""
+	   VALUE_SHARED "=\"" VALUE0 "\" " \
+	   SIZE_SHARED "=\"" LENGTH0 "\""
     CU_ASSERT_STRING_EQUAL(results.data[0], EXPECTED);
 #undef EXPECTED
     strarray_truncate(&results, 0);
@@ -1301,7 +1307,8 @@ static void test_getset_server_defined(void)
 	   "mboxname=\"\" " \
 	   "uid=0 " \
 	   "entry=\"" EXENTRY "\" " \
-	   SHARED "=\"" VALUE0 "\""
+	   VALUE_SHARED "=\"" VALUE0 "\" " \
+	   SIZE_SHARED "=\"" LENGTH0 "\""
     CU_ASSERT_STRING_EQUAL(results.data[0], EXPECTED);
 #undef EXPECTED
     strarray_truncate(&results, 0);
@@ -1318,7 +1325,7 @@ static void test_getset_server_defined(void)
     CU_ASSERT_EQUAL(r, 0);
 
     buf_free(&val);
-    setentryatt(&ealist, EXENTRY, SHARED, &val);
+    setentryatt(&ealist, EXENTRY, VALUE_SHARED, &val);
     isadmin = 1;	/* pretend to be admin */
     r = annotatemore_store(&scope, ealist,
 		           &namespace, isadmin, userid, auth_state);
@@ -1343,7 +1350,8 @@ static void test_getset_server_defined(void)
 	   "mboxname=\"\" " \
 	   "uid=0 " \
 	   "entry=\"" EXENTRY "\" " \
-	   SHARED "=NIL"
+	   VALUE_SHARED "=NIL " \
+	   SIZE_SHARED "=\"0\""
     CU_ASSERT_STRING_EQUAL(results.data[0], EXPECTED);
 #undef EXPECTED
     strarray_truncate(&results, 0);
