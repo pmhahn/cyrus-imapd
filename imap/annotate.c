@@ -2865,6 +2865,7 @@ int annotatemore_rename(const char *oldmboxname, const char *newmboxname,
     int r;
     char *oldfname = NULL, *newfname = NULL;
 
+    /* rewrite any per-folder annotations from the global db */
     r = annotatemore_begin();
     if (r)
 	goto out;
@@ -2875,6 +2876,7 @@ int annotatemore_rename(const char *oldmboxname, const char *newmboxname,
     if (r)
 	goto out;
 
+    /* rename the per-folder database */
     r = annotate_dbname(oldmboxname, &oldfname);
     if (r)
 	goto out;
@@ -2882,8 +2884,10 @@ int annotatemore_rename(const char *oldmboxname, const char *newmboxname,
     if (r)
 	goto out;
 
-    r = DB->rename(oldfname, newfname);
-    if (r) {
+    r = rename(oldfname, newfname);
+    if (r < 0) {
+	syslog(LOG_ERR, "DBERROR: error renaming %s to %s: %m",
+	       oldfname, newfname);
 	r = IMAP_IOERROR;
 	goto out;
     }
@@ -2930,12 +2934,12 @@ static int _annotate_rewrite(const char *oldmboxname,
 
 int annotatemore_delete(const char *mboxname)
 {
-    /* we treat a deleteion as a rename without a new name */
     int r;
     char *fname = NULL;
 
     assert(mboxname);
 
+    /* remove any per-folder annotations from the global db */
     r = annotatemore_begin();
     if (r)
 	goto out;
@@ -2946,12 +2950,14 @@ int annotatemore_delete(const char *mboxname)
     if (r)
 	goto out;
 
+    /* remove the entire per-folder database */
     r = annotate_dbname(mboxname, &fname);
     if (r)
 	goto out;
 
-    r = DB->remove(fname);
-    if (r) {
+    r = unlink(fname);
+    if (r < 0) {
+	syslog(LOG_ERR, "cannot unlink %s: %m", fname);
 	r = IMAP_IOERROR;
 	goto out;
     }
