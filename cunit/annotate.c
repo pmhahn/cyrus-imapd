@@ -1390,6 +1390,9 @@ static int set_up(void)
     r = system("rm -rf " DBDIR);
     if (r)
 	return r;
+    r = fexists(DBDIR);
+    if (r != -ENOENT)
+	return ENOTDIR;
 
     for (d = dirs ; *d ; d++) {
 	r = mkdir(*d, 0777);
