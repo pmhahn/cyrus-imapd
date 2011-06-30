@@ -1110,11 +1110,31 @@ static void test_msg_copy(void)
     r = annotatemore_begin();
     CU_ASSERT_EQUAL(r, 0);
 
-    /* set a value */
+    /* set some values */
 
     buf_appendcstr(&val, VALUE0);
     setentryatt(&ealist, COMMENT, VALUE_SHARED, &val);
     annotate_scope_init_message(&scope, &mailbox, 17);
+    r = annotatemore_store(&scope, ealist,
+		           &namespace, isadmin, userid, auth_state);
+    CU_ASSERT_EQUAL(r, 0);
+    freeentryatts(ealist);
+    ealist = NULL;
+
+    buf_reset(&val);
+    buf_appendcstr(&val, VALUE1);
+    setentryatt(&ealist, COMMENT, VALUE_SHARED, &val);
+    annotate_scope_init_message(&scope, &mailbox, 42);
+    r = annotatemore_store(&scope, ealist,
+		           &namespace, isadmin, userid, auth_state);
+    CU_ASSERT_EQUAL(r, 0);
+    freeentryatts(ealist);
+    ealist = NULL;
+
+    buf_reset(&val);
+    buf_appendcstr(&val, VALUE2);
+    setentryatt(&ealist, COMMENT, VALUE_SHARED, &val);
+    annotate_scope_init_message(&scope, &mailbox, 127);
     r = annotatemore_store(&scope, ealist,
 		           &namespace, isadmin, userid, auth_state);
     CU_ASSERT_EQUAL(r, 0);
@@ -1126,16 +1146,28 @@ static void test_msg_copy(void)
 
     /* check that we can fetch the values back */
 
+    buf_free(&val2);
     r = annotatemore_msg_lookup(MBOXNAME1_INT, 17, COMMENT, /*userid*/"", &val2);
     CU_ASSERT_EQUAL_FATAL(r, 0);
     CU_ASSERT_PTR_NOT_NULL_FATAL(val2.s);
     CU_ASSERT_STRING_EQUAL(buf_cstring(&val2), VALUE0);
-    buf_free(&val2);
 
+    buf_free(&val2);
+    r = annotatemore_msg_lookup(MBOXNAME1_INT, 42, COMMENT, /*userid*/"", &val2);
+    CU_ASSERT_EQUAL_FATAL(r, 0);
+    CU_ASSERT_PTR_NOT_NULL_FATAL(val2.s);
+    CU_ASSERT_STRING_EQUAL(buf_cstring(&val2), VALUE1);
+
+    buf_free(&val2);
+    r = annotatemore_msg_lookup(MBOXNAME1_INT, 127, COMMENT, /*userid*/"", &val2);
+    CU_ASSERT_EQUAL_FATAL(r, 0);
+    CU_ASSERT_PTR_NOT_NULL_FATAL(val2.s);
+    CU_ASSERT_STRING_EQUAL(buf_cstring(&val2), VALUE2);
+
+    buf_free(&val2);
     r = annotatemore_msg_lookup(MBOXNAME2_INT, 35, COMMENT, /*userid*/"", &val2);
     CU_ASSERT_EQUAL_FATAL(r, 0);
     CU_ASSERT_PTR_NULL_FATAL(val2.s);
-    buf_free(&val2);
 
     CU_ASSERT_EQUAL(fexists(DBDIR"/data/user/smurf/annotations.db"), 0);
     CU_ASSERT_EQUAL(fexists(DBDIR"/data/user/smurfette/annotations.db"), -ENOENT);
@@ -1154,19 +1186,44 @@ static void test_msg_copy(void)
     CU_ASSERT_EQUAL(fexists(DBDIR"/data/user/smurf/annotations.db"), 0);
     CU_ASSERT_EQUAL(fexists(DBDIR"/data/user/smurfette/annotations.db"), 0);
 
-    /* check that the values are present for both mailboxes */
+    /* check that the values copied are present for both mailboxes */
 
+    buf_free(&val2);
     r = annotatemore_msg_lookup(MBOXNAME1_INT, 17, COMMENT, /*userid*/"", &val2);
     CU_ASSERT_EQUAL_FATAL(r, 0);
     CU_ASSERT_PTR_NOT_NULL_FATAL(val2.s);
     CU_ASSERT_STRING_EQUAL(buf_cstring(&val2), VALUE0);
-    buf_free(&val2);
 
+    buf_free(&val2);
     r = annotatemore_msg_lookup(MBOXNAME2_INT, 35, COMMENT, /*userid*/"", &val2);
     CU_ASSERT_EQUAL_FATAL(r, 0);
     CU_ASSERT_PTR_NOT_NULL_FATAL(val2.s);
     CU_ASSERT_STRING_EQUAL(buf_cstring(&val2), VALUE0);
+
+    /* check that the values not copied are only present in the source
+     * mailbox */
+
     buf_free(&val2);
+    r = annotatemore_msg_lookup(MBOXNAME1_INT, 42, COMMENT, /*userid*/"", &val2);
+    CU_ASSERT_EQUAL_FATAL(r, 0);
+    CU_ASSERT_PTR_NOT_NULL_FATAL(val2.s);
+    CU_ASSERT_STRING_EQUAL(buf_cstring(&val2), VALUE1);
+
+    buf_free(&val2);
+    r = annotatemore_msg_lookup(MBOXNAME1_INT, 127, COMMENT, /*userid*/"", &val2);
+    CU_ASSERT_EQUAL_FATAL(r, 0);
+    CU_ASSERT_PTR_NOT_NULL_FATAL(val2.s);
+    CU_ASSERT_STRING_EQUAL(buf_cstring(&val2), VALUE2);
+
+    buf_free(&val2);
+    r = annotatemore_msg_lookup(MBOXNAME2_INT, 42, COMMENT, /*userid*/"", &val2);
+    CU_ASSERT_EQUAL_FATAL(r, 0);
+    CU_ASSERT_PTR_NULL(val2.s);
+
+    buf_free(&val2);
+    r = annotatemore_msg_lookup(MBOXNAME2_INT, 127, COMMENT, /*userid*/"", &val2);
+    CU_ASSERT_EQUAL_FATAL(r, 0);
+    CU_ASSERT_PTR_NULL(val2.s);
 
     CU_ASSERT_EQUAL(fexists(DBDIR"/data/user/smurf/annotations.db"), 0);
     CU_ASSERT_EQUAL(fexists(DBDIR"/data/user/smurfette/annotations.db"), 0);
@@ -1176,6 +1233,7 @@ static void test_msg_copy(void)
     strarray_fini(&entries);
     strarray_fini(&attribs);
     buf_free(&val);
+    buf_free(&val2);
 }
 
 // static void test_missing_definitions_file(void)
