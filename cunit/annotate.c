@@ -978,6 +978,110 @@ static void test_rename(void)
     buf_free(&val);
 }
 
+static void test_abort(void)
+{
+    int r;
+    annotate_scope_t scope;
+    struct mailbox mailbox;
+    strarray_t entries = STRARRAY_INITIALIZER;
+    strarray_t attribs = STRARRAY_INITIALIZER;
+    struct entryattlist *ealist = NULL;
+    struct buf val = BUF_INITIALIZER;
+    struct buf val2 = BUF_INITIALIZER;
+
+    annotatemore_init(NULL, NULL);
+
+    annotatemore_open();
+
+    memset(&mailbox, 0, sizeof(mailbox));
+    mailbox.name = MBOXNAME1_INT;
+    mailbox.acl = ACL;
+
+    strarray_append(&entries, COMMENT);
+    strarray_append(&attribs, VALUE_SHARED);
+
+    /* check that the values we'll be setting are not already present */
+
+    buf_free(&val2);
+    r = annotatemore_msg_lookup("", 0, COMMENT, /*userid*/"", &val2);
+    CU_ASSERT_EQUAL_FATAL(r, 0);
+    CU_ASSERT_PTR_NULL_FATAL(val2.s);
+
+    buf_free(&val2);
+    r = annotatemore_msg_lookup(MBOXNAME1_INT, 0, COMMENT, /*userid*/"", &val2);
+    CU_ASSERT_EQUAL_FATAL(r, 0);
+    CU_ASSERT_PTR_NULL_FATAL(val2.s);
+
+    buf_free(&val2);
+    r = annotatemore_msg_lookup(MBOXNAME1_INT, 42, COMMENT, /*userid*/"", &val2);
+    CU_ASSERT_EQUAL_FATAL(r, 0);
+    CU_ASSERT_PTR_NULL_FATAL(val2.s);
+
+    /* set some values */
+
+    r = annotatemore_begin();
+    CU_ASSERT_EQUAL(r, 0);
+
+    buf_appendcstr(&val, VALUE0);
+    setentryatt(&ealist, COMMENT, VALUE_SHARED, &val);
+    annotate_scope_init_server(&scope);
+    isadmin = 1;
+    r = annotatemore_store(&scope, ealist,
+		           &namespace, isadmin, userid, auth_state);
+    isadmin = 0;
+    CU_ASSERT_EQUAL(r, 0);
+    freeentryatts(ealist);
+    ealist = NULL;
+
+    buf_appendcstr(&val, VALUE0);
+    setentryatt(&ealist, COMMENT, VALUE_SHARED, &val);
+    annotate_scope_init_mailbox(&scope, MBOXNAME1_INT);
+    r = annotatemore_store(&scope, ealist,
+		           &namespace, isadmin, userid, auth_state);
+    CU_ASSERT_EQUAL(r, 0);
+    freeentryatts(ealist);
+    ealist = NULL;
+
+    buf_reset(&val);
+    buf_appendcstr(&val, VALUE1);
+    setentryatt(&ealist, COMMENT, VALUE_SHARED, &val);
+    annotate_scope_init_message(&scope, &mailbox, 42);
+    r = annotatemore_store(&scope, ealist,
+		           &namespace, isadmin, userid, auth_state);
+    CU_ASSERT_EQUAL(r, 0);
+    freeentryatts(ealist);
+    ealist = NULL;
+
+    /* abort the txn */
+
+    annotatemore_abort();
+
+    /* check that the values are still not present */
+
+    buf_free(&val2);
+    r = annotatemore_msg_lookup("", 0, COMMENT, /*userid*/"", &val2);
+    CU_ASSERT_EQUAL_FATAL(r, 0);
+    CU_ASSERT_PTR_NULL_FATAL(val2.s);
+
+    buf_free(&val2);
+    r = annotatemore_msg_lookup(MBOXNAME1_INT, 0, COMMENT, /*userid*/"", &val2);
+    CU_ASSERT_EQUAL_FATAL(r, 0);
+    CU_ASSERT_PTR_NULL_FATAL(val2.s);
+
+    buf_free(&val2);
+    r = annotatemore_msg_lookup(MBOXNAME1_INT, 42, COMMENT, /*userid*/"", &val2);
+    CU_ASSERT_EQUAL_FATAL(r, 0);
+    CU_ASSERT_PTR_NULL_FATAL(val2.s);
+
+    annotatemore_close();
+
+    strarray_fini(&entries);
+    strarray_fini(&attribs);
+    buf_free(&val);
+    buf_free(&val2);
+}
+
+
 static void test_msg_copy(void)
 {
     int r;
