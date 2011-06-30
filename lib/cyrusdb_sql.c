@@ -859,17 +859,6 @@ static int abort_txn(struct db *db, struct txn *tid)
     return finish_txn(db, tid, 0);
 }
 
-static int myremove(const char *fname __attribute__((unused)))
-{
-    return CYRUSDB_NOTSUPPORTED;
-}
-
-static int myrename(const char *fromfname __attribute__((unused)),
-		    const char *tofname __attribute__((unused)))
-{
-    return CYRUSDB_NOTSUPPORTED;
-}
-
 struct cyrusdb_backend cyrusdb_sql = 
 {
     "sql",			/* name */
@@ -893,8 +882,5 @@ struct cyrusdb_backend cyrusdb_sql =
     &abort_txn,
 
     NULL,
-    NULL,
-
-    myremove,
-    myrename
+    NULL
 };

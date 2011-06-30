@@ -56,8 +56,7 @@ enum cyrusdb_ret {
     CYRUSDB_AGAIN = -2,
     CYRUSDB_EXISTS = -3,
     CYRUSDB_INTERNAL = -4,
-    CYRUSDB_NOTFOUND = -5,
-    CYRUSDB_NOTSUPPORTED = -6
+    CYRUSDB_NOTFOUND = -5
 };
 
 #define cyrusdb_strerror(c) ("cyrusdb error")
@@ -180,10 +179,6 @@ struct cyrusdb_backend {
 
     int (*dump)(struct db *db, int detail);
     int (*consistent)(struct db *db);
-
-    /* remove or rename an entire database */
-    int (*remove)(const char *fname);
-    int (*rename)(const char *fromfname, const char *tofname);
 };
 
 extern struct cyrusdb_backend *cyrusdb_backends[];

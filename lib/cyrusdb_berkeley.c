@@ -991,17 +991,6 @@ static int abort_txn(struct db *db __attribute__((unused)),
     return 0;
 }
 
-static int myremove(const char *fname __attribute__((unused)))
-{
-    return CYRUSDB_NOTSUPPORTED;
-}
-
-static int myrename(const char *fromfname __attribute__((unused)),
-		    const char *tofname __attribute__((unused)))
-{
-    return CYRUSDB_NOTSUPPORTED;
-}
-
 struct cyrusdb_backend cyrusdb_berkeley = 
 {
     "berkeley",			/* name */
@@ -1025,10 +1014,7 @@ struct cyrusdb_backend cyrusdb_berkeley =
     &abort_txn,
     
     NULL,
-    NULL,
-
-    myremove,
-    myrename
+    NULL
 };
 
 struct cyrusdb_backend cyrusdb_berkeley_nosync = 
@@ -1054,10 +1040,7 @@ struct cyrusdb_backend cyrusdb_berkeley_nosync =
     &abort_txn,
 
     NULL,
-    NULL,
-
-    myremove,
-    myrename
+    NULL
 };
 
 struct cyrusdb_backend cyrusdb_berkeley_hash = 
@@ -1083,10 +1066,7 @@ struct cyrusdb_backend cyrusdb_berkeley_hash =
     &abort_txn,
     
     NULL,
-    NULL,
-
-    myremove,
-    myrename
+    NULL
 };
 
 struct cyrusdb_backend cyrusdb_berkeley_hash_nosync = 
@@ -1112,8 +1092,5 @@ struct cyrusdb_backend cyrusdb_berkeley_hash_nosync =
     &abort_txn,
 
     NULL,
-    NULL,
-
-    myremove,
-    myrename
+    NULL
 };

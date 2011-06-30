@@ -2385,98 +2385,6 @@ static int recovery(struct db *db, int flags)
     return r;
 }
 
-static int open_check(const char *fname)
-{
-    struct db_list *dbl;
-
-    for (dbl = open_db ; dbl ; dbl = dbl->next) {
-	if (!strcmp(dbl->db->fname, fname)) {
-	    /* this DB is open! */
-	    syslog(LOG_NOTICE, "skiplist: %s is open, cannot remove", fname);
-	    return CYRUSDB_NOTFOUND;
-	}
-    }
-    return 0;
-}
-
-
-static int myremove(const char *fname)
-{
-    char newfname[1024];
-    int r;
-
-    r = open_check(fname);
-    if (r)
-	return r;
-
-    r = unlink(fname);
-    if (r < 0) {
-	syslog(LOG_ERR, "DBERROR: skiplist cannot unlink %s: %m", fname);
-	return CYRUSDB_IOERROR;
-    }
-
-    snprintf(newfname, sizeof(newfname), "%s.NEW", fname);
-    r = unlink(newfname);
-    if (r < 0 && errno != ENOENT) {
-	syslog(LOG_ERR, "DBERROR: skiplist cannot unlink %s: %m", newfname);
-	return CYRUSDB_IOERROR;
-    }
-
-    return 0;
-}
-
-static int myrename(const char *fromfname, const char *tofname)
-{
-    char newfname[1024];
-    int r;
-
-    r = open_check(fromfname);
-    if (r)
-	return r;
-    r = open_check(tofname);
-    if (r)
-	return r;
-
-    r = rename(fromfname, tofname);
-    if (r < 0) {
-	if (errno == EXDEV) {
-	    /* Cannot rename() across filesystem boundaries...fallback
-	     * to copy and remove. */
-	    r = cyrusdb_copyfile(fromfname, tofname);
-	    if (r)
-		return CYRUSDB_IOERROR;
-	    r = unlink(fromfname);
-	    if (r < 0) {
-		syslog(LOG_ERR, "DBERROR: skiplist cannot unlink %s: %m",
-			fromfname);
-		return CYRUSDB_IOERROR;
-	    }
-	}
-	else {
-	    /* all other errors */
-	    syslog(LOG_ERR, "DBERROR: skiplist cannot rename %s to %s: %m",
-		    fromfname, tofname);
-	    return CYRUSDB_IOERROR;
-	}
-    }
-
-    snprintf(newfname, sizeof(newfname), "%s.NEW", tofname);
-    r = unlink(newfname);
-    if (r < 0 && errno != ENOENT) {
-	syslog(LOG_ERR, "DBERROR: skiplist cannot unlink %s: %m", newfname);
-	return CYRUSDB_IOERROR;
-    }
-
-    snprintf(newfname, sizeof(newfname), "%s.NEW", fromfname);
-    r = unlink(newfname);
-    if (r < 0 && errno != ENOENT) {
-	syslog(LOG_ERR, "DBERROR: skiplist cannot unlink %s: %m", newfname);
-	return CYRUSDB_IOERROR;
-    }
-
-    return 0;
-}
-
 struct cyrusdb_backend cyrusdb_skiplist = 
 {
     "skiplist",			/* name */
@@ -2500,8 +2408,5 @@ struct cyrusdb_backend cyrusdb_skiplist =
     &myabort,
 
     &dump,
-    &consistent,
-
-    myremove,
-    myrename
+    &consistent
 };
