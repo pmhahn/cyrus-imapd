@@ -1551,7 +1551,7 @@ static int parse_annotation(struct dlist *kin,
     return 0;
 }
 
-static int do_getannotation(char *mboxname,
+static int do_getannotation(const char *mboxname,
 			    struct sync_annot_list *replica_annot)
 {
     const char *cmd = "ANNOTATION";
@@ -1573,7 +1573,7 @@ static int do_getannotation(char *mboxname,
     return r;
 }
 
-static int do_annotation(char *mboxname)
+static int do_annotation(const char *mboxname)
 {
     int r;
     struct sync_annot_list *replica_annot = sync_annot_list_create();
