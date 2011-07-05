@@ -2716,6 +2716,11 @@ void replica_connect(const char *channel)
     sync_in = sync_backend->in;
     sync_out = sync_backend->out;
 
+    if (verbose > 1) {
+	prot_setlog(sync_in, fileno(stderr));
+	prot_setlog(sync_out, fileno(stderr));
+    }
+
     /* SYNC_CRC parameter negotiation.  We look for the server's
      * capabilities, and if they're provided then try to use them
      * to initialise ourself.  If that fails (e.g. the server
