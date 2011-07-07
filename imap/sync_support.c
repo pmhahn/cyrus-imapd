@@ -1676,6 +1676,8 @@ void encode_annotations(struct dlist *parent,
     struct dlist *annots = NULL;
     struct dlist *aa;
 
+    if  (!sal)
+	return;
     for (sa = sal->head ; sa ; sa = sa->next) {
 	if (!annots)
 	    annots = dlist_newlist(parent, "ANNOTATIONS");
