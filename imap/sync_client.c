@@ -747,9 +747,22 @@ static int copy_local(struct mailbox *mailbox, unsigned long uid)
 
 	    /* and append the new record (a clone apart from the EXPUNGED flag) */
 	    r = mailbox_append_index_record(mailbox, &record);
+	    if (r) return r;
+
+	    /* Copy across any per-message annotations */
+	    r = annotatemore_begin();
+	    if (r) return r;
+	    r = annotate_msg_copy(mailbox->name, uid,
+				  mailbox->name, record.uid,
+				  NULL);
+	    if (r)
+		annotatemore_abort();
+	    else
+		r = annotatemore_commit();
+	    if (r) return r;
 
 	    /* done - return */
-	    return r;
+	    return 0;
 	}
     }
 
