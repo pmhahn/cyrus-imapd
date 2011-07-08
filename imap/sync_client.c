@@ -827,6 +827,7 @@ static int copy_remote(struct mailbox *mailbox, unsigned long uid,
 	    /* already fetched the file in the parse phase */
 
 	    /* append the file */
+	    /* deliberately NOT silent -- we want a new modseq */
 	    r = sync_append_copyfile(mailbox, &record, annots);
 
 	    sync_annot_list_free(&annots);
@@ -879,6 +880,7 @@ static int copyback_one_record(struct mailbox *mailbox,
 	/* make sure we're actually making changes now */
 	if (!kaction) return 0;
 	/* append the file */
+	rp->silent = 1;
 	r = sync_append_copyfile(mailbox, rp, annots);
 	if (r) return r;
     }

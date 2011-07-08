@@ -1625,7 +1625,6 @@ int sync_append_copyfile(struct mailbox *mailbox,
     }
 
  just_write:
-    record->silent = 1;
     return mailbox_append_index_record(mailbox, record);
 }
 
