@@ -3271,7 +3271,6 @@ static int append_catenate(FILE *f, const char *cur_name, unsigned *totalsize,
  * 'cur_name' is the name of the currently selected mailbox (if any) 
  * in case we have to resolve relative URLs
  */
-#define FLAGGROW 10
 void cmd_append(char *tag, char *name, const char *cur_name)
 {
     int c;
