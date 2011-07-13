@@ -151,23 +151,23 @@ static char *_index_extract_subject(char *s, int *is_refwd);
 static void index_get_ids(MsgData *msgdata,
 			  char *envtokens[], const char *headers, unsigned size);
 static MsgData *index_msgdata_load(struct index_state *state, unsigned *msgno_list, int n,
-				   struct sortcrit *sortcrit,
+				   const struct sortcrit *sortcrit,
 				   unsigned int anchor, int *found_anchor);
 
 static void *index_sort_getnext(MsgData *node);
 static void index_sort_setnext(MsgData *node, MsgData *next);
 static int index_sort_compare(MsgData *md1, MsgData *md2,
-			      struct sortcrit *call_data);
+			      const struct sortcrit *call_data);
 static void index_msgdata_free(MsgData *md);
 
 static void *index_thread_getnext(Thread *thread);
 static void index_thread_setnext(Thread *thread, Thread *next);
 static int index_thread_compare(Thread *t1, Thread *t2,
-				struct sortcrit *call_data);
+				const struct sortcrit *call_data);
 static void index_thread_orderedsubj(struct index_state *state,
 				     unsigned *msgno_list, int nmsg,
 				     int usinguid);
-static void index_thread_sort(Thread *root, struct sortcrit *sortcrit);
+static void index_thread_sort(Thread *root, const struct sortcrit *sortcrit);
 static void index_thread_print(struct index_state *state,
 			       Thread *threads, int usinguid);
 static void index_thread_ref(struct index_state *state,
@@ -1312,7 +1312,8 @@ int index_search(struct index_state *state, struct searchargs *searchargs,
 /*
  * Performs a SORT command
  */
-int index_sort(struct index_state *state, struct sortcrit *sortcrit,
+int index_sort(struct index_state *state,
+	       const struct sortcrit *sortcrit,
 	       struct searchargs *searchargs, int usinguid)
 {
     unsigned *msgno_list;
@@ -1352,7 +1353,7 @@ int index_sort(struct index_state *state, struct sortcrit *sortcrit,
 			(void * (*)(void*)) index_sort_getnext,
 			(void (*)(void*,void*)) index_sort_setnext,
 			(int (*)(void*,void*,void*)) index_sort_compare,
-			sortcrit);
+			(void *)sortcrit);
 
 	/* Output the sorted messages */ 
 	while (msgdata) {
@@ -1388,7 +1389,7 @@ struct added
  * Performs a XCONVSORT command
  */
 int index_convsort(struct index_state *state,
-		   struct sortcrit *sortcrit,
+		   const struct sortcrit *sortcrit,
 		   struct searchargs *searchargs,
 		   const struct windowargs *windowargs)
 {
@@ -1474,7 +1475,7 @@ int index_convsort(struct index_state *state,
 			(void * (*)(void*)) index_sort_getnext,
 			(void (*)(void*,void*)) index_sort_setnext,
 			(int (*)(void*,void*,void*)) index_sort_compare,
-			sortcrit);
+			(void *)sortcrit);
 
 
 	/* Discover exemplars */
@@ -3886,7 +3887,7 @@ static int index_copysetup(struct index_state *state, uint32_t msgno,
  */
 static MsgData *index_msgdata_load(struct index_state *state,
 				   unsigned *msgno_list, int n,
-				   struct sortcrit *sortcrit,
+				   const struct sortcrit *sortcrit,
 				   unsigned int anchor, int *found_anchor)
 {
     MsgData *md, *cur;
@@ -4315,7 +4316,7 @@ static int numcmp(modseq_t n1, modseq_t n2)
  * Comparison function for sorting message lists.
  */
 static int index_sort_compare(MsgData *md1, MsgData *md2,
-			      struct sortcrit *sortcrit)
+			      const struct sortcrit *sortcrit)
 {
     int reverse, ret = 0, i = 0, ann = 0;
 
@@ -4412,7 +4413,7 @@ static void index_thread_setnext(Thread *thread, Thread *next)
  * Comparison function for sorting threads.
  */
 static int index_thread_compare(Thread *t1, Thread *t2,
-				struct sortcrit *call_data)
+				const struct sortcrit *call_data)
 {
     MsgData *md1, *md2;
 
@@ -4425,7 +4426,8 @@ static int index_thread_compare(Thread *t1, Thread *t2,
 /*
  * Sort a list of threads.
  */
-static void index_thread_sort(Thread *root, struct sortcrit *sortcrit)
+static void index_thread_sort(Thread *root,
+			      const struct sortcrit *sortcrit)
 {
     Thread *child;
 
@@ -4443,7 +4445,7 @@ static void index_thread_sort(Thread *root, struct sortcrit *sortcrit)
 			(void * (*)(void*)) index_thread_getnext,
 			(void (*)(void*,void*)) index_thread_setnext,
 			(int (*)(void*,void*,void*)) index_thread_compare,
-			sortcrit);
+			(void *)sortcrit);
 }
 
 /*
@@ -4454,7 +4456,8 @@ static void index_thread_orderedsubj(struct index_state *state,
 				     int usinguid)
 {
     MsgData *msgdata, *freeme;
-    struct sortcrit sortcrit[] = {{ SORT_SUBJECT,  0, {{NULL, NULL}} },
+    static const struct sortcrit sortcrit[] =
+				 {{ SORT_SUBJECT,  0, {{NULL, NULL}} },
 				  { SORT_DATE,     0, {{NULL, NULL}} },
 				  { SORT_SEQUENCE, 0, {{NULL, NULL}} }};
     unsigned psubj_hash = 0;
@@ -4470,7 +4473,7 @@ static void index_thread_orderedsubj(struct index_state *state,
 		    (void * (*)(void*)) index_sort_getnext,
 		    (void (*)(void*,void*)) index_sort_setnext,
 		    (int (*)(void*,void*,void*)) index_sort_compare,
-		    sortcrit);
+		    (void *)sortcrit);
 
     /* create an array of Thread to use as nodes of thread tree
      *
@@ -4873,7 +4876,8 @@ static void ref_prune_tree(Thread *parent)
 static void ref_sort_root(Thread *root)
 {
     Thread *cur;
-    struct sortcrit sortcrit[] = {{ SORT_DATE,     0, {{NULL, NULL}} },
+    static const struct sortcrit sortcrit[] =
+				 {{ SORT_DATE,     0, {{NULL, NULL}} },
 				  { SORT_SEQUENCE, 0, {{NULL, NULL}} }};
 
     cur = root->child;
@@ -4884,7 +4888,7 @@ static void ref_sort_root(Thread *root)
 			       (void * (*)(void*)) index_thread_getnext,
 			       (void (*)(void*,void*)) index_thread_setnext,
 			       (int (*)(void*,void*,void*)) index_thread_compare,
-			       sortcrit);
+			       (void *)sortcrit);
 	}
 	cur = cur->next;
     }
@@ -4894,7 +4898,7 @@ static void ref_sort_root(Thread *root)
 			(void * (*)(void*)) index_thread_getnext,
 			(void (*)(void*,void*)) index_thread_setnext,
 			(int (*)(void*,void*,void*)) index_thread_compare,
-			sortcrit);
+			(void *)sortcrit);
 }
 
 /*
@@ -5128,9 +5132,9 @@ static void index_thread_search(struct index_state *state,
  * searchproc() and sortcrit[].
  */
 static void _index_thread_ref(struct index_state *state, unsigned *msgno_list, int nmsg,
-			      struct sortcrit loadcrit[],
+			      const struct sortcrit loadcrit[],
 			      int (*searchproc) (MsgData *),
-			      struct sortcrit sortcrit[], int usinguid)
+			      const struct sortcrit sortcrit[], int usinguid)
 {
     MsgData *msgdata, *freeme, *md;
     int tref, nnode;
@@ -5216,11 +5220,13 @@ static void _index_thread_ref(struct index_state *state, unsigned *msgno_list, i
  */
 static void index_thread_ref(struct index_state *state, unsigned *msgno_list, int nmsg, int usinguid)
 {
-    struct sortcrit loadcrit[] = {{ LOAD_IDS,      0, {{NULL,NULL}} },
+    static const struct sortcrit loadcrit[] =
+				 {{ LOAD_IDS,      0, {{NULL,NULL}} },
 				  { SORT_SUBJECT,  0, {{NULL,NULL}} },
 				  { SORT_DATE,     0, {{NULL,NULL}} },
 				  { SORT_SEQUENCE, 0, {{NULL,NULL}} }};
-    struct sortcrit sortcrit[] = {{ SORT_DATE,     0, {{NULL,NULL}} },
+    static const struct sortcrit sortcrit[] =
+				 {{ SORT_DATE,     0, {{NULL,NULL}} },
 				  { SORT_SEQUENCE, 0, {{NULL,NULL}} }};
 
     _index_thread_ref(state, msgno_list, nmsg, loadcrit, NULL, sortcrit, usinguid);
