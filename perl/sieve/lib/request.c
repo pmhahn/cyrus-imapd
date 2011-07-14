@@ -77,7 +77,7 @@ void parseerror(const char *str)
 }
 
 int handle_response(int res,int version,struct protstream *pin, 
-		    char **refer_to, mystring_t **errstr)
+		    char **refer_to, char **errstr)
 {    
   lexstate_t state;
   int r = 0;
@@ -107,7 +107,7 @@ int handle_response(int res,int version,struct protstream *pin,
 	      if (yylex(&state, pin)!=STRING)
 		  parseerror("expected string");
 
-	      *refer_to = xstrdup(string_DATAPTR(state.str));
+	      *refer_to = state.str;
 
 	      if (yylex(&state, pin)!=')')
 		  parseerror("expected RPAREN");
@@ -178,7 +178,7 @@ int handle_response(int res,int version,struct protstream *pin,
 	      if (yylex(&state, pin)!=STRING)
 		  parseerror("expected string");
 
-	      *refer_to = xstrdup(string_DATAPTR(state.str));
+	      *refer_to = xstrdup(state.str);
 
 	      if (yylex(&state, pin)!=')')
 		  parseerror("expected RPAREN");
@@ -206,13 +206,13 @@ int handle_response(int res,int version,struct protstream *pin,
 }
 
 int deleteascript(int version, struct protstream *pout, 
-		  struct protstream *pin, char *name,
+		  struct protstream *pin, const char *name,
 		  char **refer_to, char **errstrp)
 {
   lexstate_t state;
   int res;
   int ret;
-  mystring_t *errstr;
+  char *errstr = NULL;
 
   prot_printf(pout,"DELETESCRIPT \"%s\"\r\n",name);
   prot_flush(pout);  
@@ -225,7 +225,7 @@ int deleteascript(int version, struct protstream *pout,
       return -2;
   } else if (ret!=0) {
       *errstrp = strconcat("Deleting script: ",
-			   string_DATAPTR(errstr),
+			   errstr,
 			   (char *)NULL);
       return -1;
   }
@@ -239,7 +239,7 @@ int installdata(int version,struct protstream *pout, struct protstream *pin,
 {
   int res;
   int ret;
-  mystring_t *errstr=NULL;
+  char *errstr=NULL;
   lexstate_t state;
 
   prot_printf(pout, "PUTSCRIPT \"%s\" ",scriptname);
@@ -261,7 +261,7 @@ int installdata(int version,struct protstream *pout, struct protstream *pin,
       return -2;
   } else if (ret!=0) {
       *errstrp = strconcat("Putting script: ",
-			   string_DATAPTR(errstr),
+			   errstr,
 			   (char *)NULL);
       return -1;
   }
@@ -305,7 +305,7 @@ int installafile(int version,struct protstream *pout, struct protstream *pin,
   int cnt;
   int res;
   int ret;
-  mystring_t *errstr=NULL;
+  char *errstr=NULL;
   lexstate_t state;
   char *sievename;
 
@@ -375,7 +375,7 @@ int installafile(int version,struct protstream *pout, struct protstream *pin,
       return -2;
   } else if (ret!=0) {
       *errstrp = strconcat("put script: ",
-			   string_DATAPTR(errstr),
+			   errstr,
 			   (char *)NULL);
       return -1;
   }
@@ -402,7 +402,7 @@ int showlist(int version, struct protstream *pout, struct protstream *pin,
 
     if ((res=yylex(&state, pin))==STRING)
     {
-      char *str=string_DATAPTR(state.str);
+      char *str=state.str;
 
       if (yylex(&state, pin)==' ')
       {
@@ -460,7 +460,7 @@ int list_wcb(int version, struct protstream *pout,
 
     if ((res=yylex(&state, pin))==STRING)
     {
-      char *str=string_DATAPTR(state.str);
+      char *str=state.str;
 
       if (yylex(&state, pin)==' ')
       {
@@ -505,7 +505,7 @@ int setscriptactive(int version, struct protstream *pout,
   lexstate_t state;
   int res;
   int ret;
-  mystring_t *errstr=NULL;
+  char *errstr=NULL;
 
   /* tell server we want "name" to be the active script */
   prot_printf(pout, "SETACTIVE \"%s\"\r\n",name);
@@ -521,26 +521,25 @@ int setscriptactive(int version, struct protstream *pout,
       return -2;
   } else if (ret != 0) {
       *errstrp = strconcat("Setting script active: ",
-			   string_DATAPTR(errstr),
+			   errstr,
 			   (char *)NULL);
       return -1;
   }
   return 0;
 }
 
-static int viewafile(mystring_t *data)
+static int viewafile(const char *data)
 {
-  printf("%s\r\n", string_DATAPTR(data));
+  printf("%s\r\n", data);
 
   return 0;
 }
 
-static int writefile(mystring_t *data, char *name, char **errstrp)
+static int writefile(const char *data, const char *name, char **errstrp)
 {
   FILE *stream;
 
   char *scrname;
-  char *dp; /* this is only necessary to shut up gcc */
 
   scrname=malloc(strlen(name)+10);
   strcpy(scrname, name);
@@ -559,20 +558,18 @@ static int writefile(mystring_t *data, char *name, char **errstrp)
       return -1;
   }
 
-  dp = string_DATAPTR(data);
-  fwrite(dp, 1, data->len, stream);
-
+  fputs(data, stream);
   fclose(stream);
 
   return 0;
 }
 
 int getscript(int version, struct protstream *pout, 
-	      struct protstream *pin,char *name, int save,
+	      struct protstream *pin, const char *name, int save,
 	      char **refer_to, char **errstrp)
 {
   int res;
-  mystring_t *errstr=NULL;
+  char *errstr=NULL;
   lexstate_t state;
   int ret = 0;
 
@@ -601,7 +598,7 @@ int getscript(int version, struct protstream *pout,
   if(ret == -2 && *refer_to) {
       return -2;
   } else if (ret!=0) {
-      *errstrp = xstrdup(string_DATAPTR(errstr));
+      *errstrp = errstr;
   }
 
   return ret;
@@ -609,12 +606,12 @@ int getscript(int version, struct protstream *pout,
 
 
 int getscriptvalue(int version, struct protstream *pout, 
-		   struct protstream *pin,char *name, mystring_t **data, 
+		   struct protstream *pin, char *name, char **data,
 		   char **refer_to, char **errstrp)
 {
   int res;
   int ret;
-  mystring_t *errstr=NULL;
+  char *errstr=NULL;
   lexstate_t state;
 
   prot_printf(pout,"GETSCRIPT \"%s\"\r\n",name);
@@ -638,7 +635,7 @@ int getscriptvalue(int version, struct protstream *pout,
   if(ret == -2 && *refer_to) {
       return -2;
   } else if (ret!=0) {
-      *errstrp = xstrdup(string_DATAPTR(errstr));
+      *errstrp = errstr;
       return -1;
   }
 

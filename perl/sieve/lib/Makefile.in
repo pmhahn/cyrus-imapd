@@ -68,7 +68,7 @@ prefix = @prefix@
 exec_prefix = @exec_prefix@
 cyrus_prefix = @cyrus_prefix@
 
-OBJS=isieve.o lex.o mystring.o request.o
+OBJS=isieve.o lex.o request.o
 
 all: libisieve.a
 

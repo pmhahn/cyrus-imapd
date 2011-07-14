@@ -255,7 +255,7 @@ char * read_capability(isieve_t *obj)
 
   while (yylex(&state,obj->pin)==STRING)
   {
-      char *attr = string_DATAPTR(state.str);
+      char *attr = state.str;
       char *val;
 
       val = NULL;
@@ -266,7 +266,7 @@ char * read_capability(isieve_t *obj)
 	  {
 	      parseerror("STRING");
 	  }
-	  val = xstrdup(string_DATAPTR(state.str));
+	  val = state.str;
 	  if (yylex(&state,obj->pin)!=EOL)
 	  {
 	      parseerror("EOL1");
@@ -284,12 +284,9 @@ char * read_capability(isieve_t *obj)
       } else if (strcasecmp(attr,"STARTTLS")==0) {
 	  /* TODO */
       } else if (val && strncmp(val,"SASL=",5)==0) {
-	  int len = strlen(val);
 	  obj->version = OLD_VERSION;
 	  free(cap);
-	  cap = (char *) xmalloc(len+1);
-	  memset(cap, '\0', len);
-	  memcpy(cap, val+5, len-6);
+	  cap = xstrdup(val+5);
 	  free(val);
 	  return cap;
       } else {
@@ -340,7 +337,7 @@ static int getauthline(isieve_t *obj, char **line, unsigned int *linelen,
   int res;
   int ret;
   size_t len;
-  mystring_t *errstr;
+  char *errstr = NULL;
   char *last_send;
 
   /* now let's see what the server said */
@@ -368,15 +365,15 @@ static int getauthline(isieve_t *obj, char **line, unsigned int *linelen,
 	  return STAT_OK;
       } else { /* server said no or bye*/
 	  /* xxx handle referrals */
-	  *errstrp = string_DATAPTR(errstr);
+	  *errstrp = errstr;
 	  return STAT_NO;
       }
   }
 
-  len = state.str->len*2+1;
+  len = strlen(state.str)*2+1;
   *line=(char *) xmalloc(len);
 
-  sasl_decode64(string_DATAPTR(state.str), state.str->len,
+  sasl_decode64(state.str, strlen(state.str),
 		*line, len, linelen);
 
   if (yylex(&state, obj->pin)!=EOL)
@@ -790,7 +787,7 @@ int isieve_get(isieve_t *obj,char *name, char **output, char **errstr)
 {
     int ret;
     char *refer_to;
-    mystring_t *mystr = NULL;
+    char *mystr = NULL;
 
     ret = getscriptvalue(obj->version,obj->pout, obj->pin,
 			 name, &mystr, &refer_to, errstr);
@@ -805,7 +802,7 @@ int isieve_get(isieve_t *obj,char *name, char **output, char **errstr)
 	}
     }
 
-    *output = string_DATAPTR(mystr);
+    *output = mystr;
 
     return ret;
 }
