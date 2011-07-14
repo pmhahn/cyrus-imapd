@@ -57,7 +57,6 @@
 #include "tls.h"
 #include "lex.h"
 #include "codes.h"
-#include "mystring.h"
 #include "actions.h"
 #include "libconfig.h"
 #include "global.h"
@@ -150,7 +149,7 @@ int lex_init(void)
  * if outstr is NULL it isn't filled in
  */
 
-int timlex(mystring_t **outstr, unsigned long *outnum,  struct protstream *stream)
+int timlex(struct buf *outstr, unsigned long *outnum,  struct protstream *stream)
 {
 
   int ch;
@@ -206,13 +205,6 @@ int timlex(mystring_t **outstr, unsigned long *outnum,  struct protstream *strea
     case LEXER_STATE_QSTR:
       if (ch == '\"') {
 	/* End of the string */
-	if (outstr!=NULL)
-	{
-	  *outstr = NULL;
-	  result = string_allocate(buff_ptr - buffer, buffer, outstr);
-	  if (result != TIMSIEVE_OK)
-	    ERR_PUSHBACK();
-	}
 	  /*} */
 	lexer_state=LEXER_STATE_NORMAL;
 	return STRING;
@@ -277,23 +269,15 @@ int timlex(mystring_t **outstr, unsigned long *outnum,  struct protstream *strea
 	  ERR();
       }
 
-      if (outstr!=NULL)
-      {
-	*outstr = NULL;
-	result = string_allocate(count, NULL, outstr);
-	if (result != TIMSIEVE_OK)
-	  ERR_PUSHBACK();
-      }
-
       /* there is a literal string on the wire. let's read it */
-      if (outstr!=NULL) {
-	char           *it = string_DATAPTR(*outstr),
-	               *end = it + count;
-
-	while (it < end) {
-	  *it=prot_getc(stream);
-	  it++;
-	}
+      if (outstr) {
+	  for (;count > 0;count--) {
+	      ch = prot_getc(stream);
+	      if (ch == EOF)
+		    break;
+	      buf_putc(outstr, ch);
+	  }
+	  buf_cstring(outstr);
       } else {
 	/* just read the chars and throw them away */
 	unsigned long lup;

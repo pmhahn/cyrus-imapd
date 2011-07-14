@@ -86,7 +86,7 @@ check:
 install:
 	$(INSTALL) -m 755 timsieved $(DESTDIR)$(service_path)
 
-OBJS= actions.o lex.o mystring.o scripttest.o timsieved.o parser.o \
+OBJS= actions.o lex.o scripttest.o timsieved.o parser.o \
 	../imap/proxy.o
 
 timsieved: $(OBJS) $(SERVICE)
