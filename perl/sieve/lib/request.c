@@ -528,7 +528,7 @@ int setscriptactive(int version, struct protstream *pout,
   return 0;
 }
 
-static int viewafile(mystring_t *data, char *name __attribute__((unused)))
+static int viewafile(mystring_t *data)
 {
   printf("%s\r\n", string_DATAPTR(data));
 
@@ -587,7 +587,7 @@ int getscript(int version, struct protstream *pout,
     if (save==1)
       writefile(state.str, name, errstrp);
     else
-      viewafile(state.str, name);
+      viewafile(state.str);
 
     if (yylex(&state, pin)!=EOL)
       parseerror("EOL");
