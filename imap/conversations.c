@@ -119,6 +119,35 @@ char *conversations_getmboxpath(const char *mboxname)
     return fname;
 }
 
+static int _init_counted(struct conversations_state *state, const char *val)
+{
+    int r;
+    const char *key = "$COUNTED_FLAGS";
+
+    if (!val) {
+	val = config_getstring(IMAPOPT_CONVERSATIONS_COUNTED_FLAGS);
+	if (!val) val = "";
+	r = DB->store(state->db, key, strlen(key), val, strlen(val), &state->txn);
+	if (r) {
+	    syslog(LOG_ERR, "Failed to write counted_flags");
+	    return r;
+	}
+    }
+
+    /* remove any existing value */
+    if (state->counted_flags) {
+	strarray_free(state->counted_flags);
+	state->counted_flags = NULL;
+    }
+
+    /* add the value only if there's some flags set */
+    if (strlen(val)) {
+	state->counted_flags = strarray_split(val, " ");
+    }
+
+    return 0;
+}
+
 int conversations_open_path(const char *fname, struct conversations_state **statep)
 {
     int r;
@@ -152,34 +181,16 @@ int conversations_open_path(const char *fname, struct conversations_state **stat
     /* ensure a write lock immediately, and also load the counted flags */
     r = DB->fetchlock(open->s.db, key, keylen, &val, &vallen, &open->s.txn);
     if (!r) {
-	/* only if flags were set */
-	if (vallen) {
-	    counted = xstrndup(val, vallen);
-	}
+	/* read a value, we'll use that */
+	counted = xstrndup(val, vallen);
     }
-    else if (config_getstring(IMAPOPT_CONVERSATIONS_COUNTED_FLAGS)) {
-	counted = xstrdup(config_getstring(IMAPOPT_CONVERSATIONS_COUNTED_FLAGS));
-	r = DB->store(open->s.db, key, keylen, counted, strlen(counted), &open->s.txn);
-	if (r) {
-	    syslog(LOG_ERR, "Failed to write counted_flags to %s", fname);
-	}
-    }
-    else {
-	/* empty value - we aren't counting flags */
-	r = DB->store(open->s.db, key, keylen, "", 0, &open->s.txn);
-	if (r) {
-	    syslog(LOG_ERR, "Failed to write counted_flags to %s", fname);
-	}
-    }
+    r = _init_counted(&open->s, counted);
+    free(counted);
 
-    if (counted) {
-	open->s.counted_flags = strarray_split(counted, " ");
-	free(counted);
-    }
+    if (!r)
+	*statep = &open->s;
 
-    *statep = &open->s;
-
-    return 0;
+    return r;
 }
 
 int conversations_open_user(const char *username, struct conversations_state **statep)
@@ -1203,7 +1214,13 @@ int conversations_wipe_counts(struct conversations_state *state)
     /* wipe F counts */
     r = DB->foreach(state->db, "F", 1, NULL, delete_cb,
 		    state, &state->txn);
-    return r;
+    if (r) return r;
+
+    /* wipe counted_flags */
+    r = DB->delete(state->db, "$COUNTED_FLAGS", 14, &state->txn, 1);
+    if (r) return r;
+
+    return _init_counted(state, NULL);
 }
 
 void conversations_dump(struct conversations_state *state, FILE *fp)
