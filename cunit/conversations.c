@@ -13,6 +13,7 @@
 #define DBDIR	"test-dbdir"
 #define DBNAME	"conversations.db"
 #define DBNAME2	"conversations2.db"
+#define DBNAME3	"conversations.db"
 
 static void test_open(void)
 {
@@ -363,16 +364,16 @@ static void test_cid_rename(void)
     r = conversations_set_msgid(state, C_MSGID3, C_CID1);
     CU_ASSERT_EQUAL(r, 0);
 
-    conv = conversation_new();
+    conv = conversation_new(state);
     CU_ASSERT_PTR_NOT_NULL(conv);
 
-    conversation_update(conv, FOLDER1,
+    conversation_update(state, conv, FOLDER1,
 			/*exists*/3, /*unseen*/0, /*counts*/NULL,
 			/*modseq*/1);
-    conversation_update(conv, FOLDER2,
+    conversation_update(state, conv, FOLDER2,
 			/*exists*/2, /*unseen*/0, /*counts*/NULL,
 			/*modseq*/8);
-    conversation_update(conv, FOLDER3,
+    conversation_update(state, conv, FOLDER3,
 			/*exists*/10, /*unseen*/0, /*counts*/NULL,
 			/*modseq*/5);
 
@@ -471,13 +472,13 @@ static void test_folder_rename(void)
     r = conversations_set_msgid(state, C_MSGID3, C_CID);
     CU_ASSERT_EQUAL(r, 0);
 
-    conv = conversation_new();
+    conv = conversation_new(state);
     CU_ASSERT_PTR_NOT_NULL(conv);
 
-    conversation_update(conv, FOLDER1,
+    conversation_update(state, conv, FOLDER1,
 			/*exists*/3, /*unseen*/0, /*counts*/NULL,
 			/*modseq*/1);
-    conversation_update(conv, FOLDER2,
+    conversation_update(state, conv, FOLDER2,
 			/*exists*/2, /*unseen*/0, /*counts*/NULL,
 			/*modseq*/8);
 
@@ -574,11 +575,17 @@ static void test_folders(void)
     conv_folder_t *folder;
     int *counts;
 
-    r = conversations_open_path(DBNAME, &state);
+    /* hack to get this DB created with a counted_strings value */
+    imapopts[IMAPOPT_CONVERSATIONS_COUNTED_FLAGS].val.s = "\\Draft $HasRandom";
+
+    r = conversations_open_path(DBNAME3, &state);
     CU_ASSERT_EQUAL(r, 0);
 
-    config_counted_flags = strarray_split("\\Drafts $Random", " ");
-    counts = xzmalloc(sizeof(int) * config_counted_flags->count);
+    imapopts[IMAPOPT_CONVERSATIONS_COUNTED_FLAGS].val.s = NULL;
+
+    CU_ASSERT_EQUAL(state->counted_flags->count, 2);
+
+    counts = xzmalloc(sizeof(int) * state->counted_flags->count);
 
     /* Database is empty, so get should succeed and report no results */
     conv = NULL;
@@ -587,14 +594,14 @@ static void test_folders(void)
     CU_ASSERT_PTR_NULL(conv);
 
     /* update should succeed */
-    conv = conversation_new();
+    conv = conversation_new(state);
     CU_ASSERT_PTR_NOT_NULL(conv);
     CU_ASSERT_EQUAL(conv->dirty, 1);
 
     counts[0] = 1;
     counts[1] = 0;
 
-    conversation_update(conv, FOLDER1,
+    conversation_update(state, conv, FOLDER1,
 			/*exists*/7, /*unseen*/5, counts,
 			/*modseq*/4);
 
@@ -637,11 +644,11 @@ static void test_folders(void)
 
     counts[1] = 2;
     /* some more updates should succeed */
-    conversation_update(conv, FOLDER2,
+    conversation_update(state, conv, FOLDER2,
 			/*exists*/1, /*unseen*/0, counts,
 			/*modseq*/7);
     counts[1] = 5;
-    conversation_update(conv, FOLDER3,
+    conversation_update(state, conv, FOLDER3,
 			/*exists*/10, /*unseen*/0, counts,
 			/*modseq*/55);
     CU_ASSERT_EQUAL(conv->dirty, 1);
@@ -683,7 +690,7 @@ static void test_folders(void)
     CU_ASSERT_EQUAL(r, 0);
 
     /* open the db again */
-    r = conversations_open_path(DBNAME, &state);
+    r = conversations_open_path(DBNAME3, &state);
     CU_ASSERT_EQUAL(r, 0);
 
     /* get should still succeed and report all values we gave it */
@@ -715,9 +722,6 @@ static void test_folders(void)
 
     r = conversations_abort(&state);
     CU_ASSERT_EQUAL(r, 0);
-
-    strarray_free(config_counted_flags);
-    config_counted_flags = NULL;
 }
 
 static void gen_msgid_cid(int i, char *msgid, int msgidlen,
@@ -795,10 +799,10 @@ static void test_dump(void)
     }
     for (i = 0 ; i < N_CID_TO_FOLDER ; i++) {
 	gen_cid_folder(i, &cid, &mboxnames);
-	conv = conversation_new();
+	conv = conversation_new(state);
 	CU_ASSERT_PTR_NOT_NULL(conv);
 	for (j = 0 ; j < mboxnames.count ; j++) {
-	    conversation_update(conv, mboxnames.data[j],
+	    conversation_update(state, conv, mboxnames.data[j],
 				/*exists*/1, /*unseen*/0, NULL,
 				/*modseq*/100);
 	}
