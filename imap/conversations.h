@@ -49,6 +49,7 @@
 
 #include <stdio.h>
 #include <string.h>
+#include "strarray.h"
 #include "util.h"
 
 typedef bit64	conversation_id_t;
@@ -58,6 +59,7 @@ typedef bit64	conversation_id_t;
 struct conversations_state {
     struct db *db;
     struct txn *txn;
+    strarray_t *counted_flags;
     char *path;
 };
 
@@ -147,7 +149,8 @@ extern int conversation_load(struct conversations_state *state,
  * consistency rules (e.g. the conversation's modseq is the
  * maximum of all the per-folder modseqs).  Sets conv->dirty
  * if any data actually changed.  */
-extern void conversation_update(conversation_t *conv,
+extern void conversation_update(struct conversations_state *state,
+			        conversation_t *conv,
 			        const char *mboxname,
 			        int delta_exists,
 			        int delta_unseen,
@@ -157,7 +160,7 @@ extern conv_folder_t *conversation_find_folder(conversation_t *,
 					       const char *mboxname);
 extern conv_folder_t *conversation_add_folder(conversation_t *,
 					      const char *mboxname);
-extern conversation_t *conversation_new(void);
+extern conversation_t *conversation_new(struct conversations_state *state);
 extern void conversation_free(conversation_t *);
 
 extern void conversation_add_sender(conversation_t *conv,

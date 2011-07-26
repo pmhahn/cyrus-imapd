@@ -2170,10 +2170,10 @@ int mailbox_update_conversations(struct mailbox *mailbox,
     if (r)
 	return r;
     if (!conv)
-	conv = conversation_new();
+	conv = conversation_new(cstate);
 
-    if (config_counted_flags)
-	delta_counts = xzmalloc(sizeof(int) * config_counted_flags->count);
+    if (cstate->counted_flags)
+	delta_counts = xzmalloc(sizeof(int) * cstate->counted_flags->count);
 
     /* calculate the changes */
     if (old) {
@@ -2183,9 +2183,9 @@ int mailbox_update_conversations(struct mailbox *mailbox,
 	    /* drafts are never unseen */
 	    if (!(old->system_flags & (FLAG_SEEN|FLAG_DRAFT)))
 		delta_unseen--;
-	    if (config_counted_flags) {
-		for (i = 0; i < config_counted_flags->count; i++) {
-		    const char *flag = strarray_nth(config_counted_flags, i);
+	    if (cstate->counted_flags) {
+		for (i = 0; i < cstate->counted_flags->count; i++) {
+		    const char *flag = strarray_nth(cstate->counted_flags, i);
 		    if (mailbox_record_hasflag(mailbox, old, flag))
 			delta_counts[i]--;
 		}
@@ -2200,9 +2200,9 @@ int mailbox_update_conversations(struct mailbox *mailbox,
 	    /* drafts are never unseen */
 	    if (!(new->system_flags & (FLAG_SEEN|FLAG_DRAFT)))
 		delta_unseen++;
-	    if (config_counted_flags) {
-		for (i = 0; i < config_counted_flags->count; i++) {
-		    const char *flag = strarray_nth(config_counted_flags, i);
+	    if (cstate->counted_flags) {
+		for (i = 0; i < cstate->counted_flags->count; i++) {
+		    const char *flag = strarray_nth(cstate->counted_flags, i);
 		    if (mailbox_record_hasflag(mailbox, new, flag))
 			delta_counts[i]++;
 		}
@@ -2237,7 +2237,7 @@ int mailbox_update_conversations(struct mailbox *mailbox,
 	}
     }
 
-    conversation_update(conv, mailbox->name,
+    conversation_update(cstate, conv, mailbox->name,
 			delta_exists, delta_unseen,
 			delta_counts, modseq);
 

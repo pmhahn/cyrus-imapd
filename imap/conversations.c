@@ -123,10 +123,11 @@ int conversations_open_path(const char *fname, struct conversations_state **stat
 {
     int r;
     struct conversations_open *open = NULL;
-    const char *key = "";
+    const char *key = "$COUNTED_FLAGS";
     const char *val;
-    int keylen = 0;
+    int keylen = strlen(key);
     int vallen;
+    char *counted = NULL;
 
     if (!fname)
 	return IMAP_MAILBOX_BADNAME;
@@ -148,8 +149,33 @@ int conversations_open_path(const char *fname, struct conversations_state **stat
     open->next = open_conversations;
     open_conversations = open;
 
-    /* XXX - nicer way to ensure a write lock immediately */
+    /* ensure a write lock immediately, and also load the counted flags */
     r = DB->fetchlock(open->s.db, key, keylen, &val, &vallen, &open->s.txn);
+    if (!r) {
+	/* only if flags were set */
+	if (vallen) {
+	    counted = xstrndup(val, vallen);
+	}
+    }
+    else if (config_getstring(IMAPOPT_CONVERSATIONS_COUNTED_FLAGS)) {
+	counted = xstrdup(config_getstring(IMAPOPT_CONVERSATIONS_COUNTED_FLAGS));
+	r = DB->store(open->s.db, key, keylen, counted, strlen(counted), &open->s.txn);
+	if (r) {
+	    syslog(LOG_ERR, "Failed to write counted_flags to %s", fname);
+	}
+    }
+    else {
+	/* empty value - we aren't counting flags */
+	r = DB->store(open->s.db, key, keylen, "", 0, &open->s.txn);
+	if (r) {
+	    syslog(LOG_ERR, "Failed to write counted_flags to %s", fname);
+	}
+    }
+
+    if (counted) {
+	open->s.counted_flags = strarray_split(counted, " ");
+	free(counted);
+    }
 
     *statep = &open->s;
 
@@ -219,6 +245,8 @@ void _conv_remove (struct conversations_state **statep)
 	    /* found it! */
 	    *prevp = cur->next;
 	    free(cur->s.path);
+	    if (cur->s.counted_flags)
+		strarray_free(cur->s.counted_flags);
 	    free(cur);
 	    *statep = NULL;
 	    return;
@@ -455,10 +483,10 @@ int _conversation_save(struct conversations_state *state,
     dlist_setnum64(dl, "MODSEQ", conv->modseq);
     dlist_setnum32(dl, "EXISTS", conv->exists);
     dlist_setnum32(dl, "UNSEEN", conv->unseen);
-    if (config_counted_flags) {
+    if (state->counted_flags) {
 	n = dlist_newlist(dl, "COUNTS");
-	for (i = 0; i < config_counted_flags->count; i++) {
-	    const char *flag = strarray_nth(config_counted_flags, i);
+	for (i = 0; i < state->counted_flags->count; i++) {
+	    const char *flag = strarray_nth(state->counted_flags, i);
 	    dlist_setnum32(n, flag, conv->counts[i]);
 	}
     }
@@ -628,7 +656,8 @@ int conversation_setstatus(struct conversations_state *state,
     return r;
 }
 
-int _conversation_load(const char *data, int datalen,
+int _conversation_load(struct conversations_state *state,
+		       const char *data, int datalen,
 		       conversation_t **convp)
 {
     const char *rest;
@@ -662,7 +691,7 @@ int _conversation_load(const char *data, int datalen,
     r = dlist_parsemap(&dl, 0, rest, restlen);
     if (r) return r;
 
-    conv = conversation_new();
+    conv = conversation_new(state);
 
     n = dlist_getchild(dl, "MODSEQ");
     if (n)
@@ -673,10 +702,10 @@ int _conversation_load(const char *data, int datalen,
     n = dlist_getchild(dl, "UNSEEN");
     if (n)
 	conv->unseen = dlist_num(n);
-    if (config_counted_flags) {
+    if (state->counted_flags) {
 	n = dlist_getchild(dl, "COUNTS");
 	nn = n ? n->head : NULL;
-	for (i = 0; i < config_counted_flags->count; i++) {
+	for (i = 0; i < state->counted_flags->count; i++) {
 	    if (nn) {
 		conv->counts[i] = dlist_num(nn);
 		nn = nn->next;
@@ -746,7 +775,7 @@ int conversation_load(struct conversations_state *state,
 	return r;
     }
 
-    r = _conversation_load(data, datalen, convp);
+    r = _conversation_load(state, data, datalen, convp);
     if (r) {
 	syslog(LOG_ERR, "IOERROR: conversations invalid conversation "
 	       CONV_FMT, cid);
@@ -839,7 +868,8 @@ static void _apply_delta(uint32_t *valp, int delta)
     }
 }
 
-void conversation_update(conversation_t *conv, const char *mboxname,
+void conversation_update(struct conversations_state *state,
+			 conversation_t *conv, const char *mboxname,
 			 int delta_exists, int delta_unseen,
 			 int *delta_counts, modseq_t modseq)
 {
@@ -857,8 +887,8 @@ void conversation_update(conversation_t *conv, const char *mboxname,
 	_apply_delta(&conv->unseen, delta_unseen);
 	conv->dirty = 1;
     }
-    if (config_counted_flags) {
-	for (i = 0; i < config_counted_flags->count; i++) {
+    if (state->counted_flags) {
+	for (i = 0; i < state->counted_flags->count; i++) {
 	    if (delta_counts[i]) {
 		_apply_delta(&conv->counts[i], delta_counts[i]);
 		conv->dirty = 1;
@@ -875,13 +905,13 @@ void conversation_update(conversation_t *conv, const char *mboxname,
     }
 }
 
-conversation_t *conversation_new(void)
+conversation_t *conversation_new(struct conversations_state *state)
 {
     conversation_t *conv;
 
     conv = xzmalloc(sizeof(conversation_t));
-    if (config_counted_flags)
-	conv->counts = xzmalloc(sizeof(uint32_t) * config_counted_flags->count);
+    if (state->counted_flags)
+	conv->counts = xzmalloc(sizeof(uint32_t) * state->counted_flags->count);
     conv->dirty = 1;
 
     return conv;
@@ -1061,7 +1091,7 @@ static int do_folder_rename(void *rock,
     conv_folder_t **prevp;
     int r = 0;
 
-    _conversation_load(data, datalen, &conv);
+    _conversation_load(frock->state, data, datalen, &conv);
     if (!conv) return 0;
 
     frock->entries_seen++;

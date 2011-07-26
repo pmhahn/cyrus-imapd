@@ -4566,7 +4566,8 @@ void cmd_fetch(char *tag, char *sequence, int usinguid)
     strarray_fini(&fetchargs.attribs);
 }
 
-static void do_one_xconvmeta(conversation_id_t cid,
+static void do_one_xconvmeta(struct conversations_state *state,
+			     conversation_id_t cid,
 			     conversation_t *conv,
 			     struct dlist *itemlist)
 {
@@ -4594,14 +4595,11 @@ static void do_one_xconvmeta(conversation_id_t cid,
 		struct dlist *tmp;
 		for (tmp = fl->head; tmp; tmp = tmp->next) {
 		    const char *lookup = dlist_cstring(tmp);
-		    uint32_t val = 0;
-		    for (i = 0; i < config_counted_flags->count; i++) {
-			const char *flag = strarray_nth(config_counted_flags, i);
-			if (!strcasecmp(lookup, flag))
-			    val = conv->counts[i];
+		    int i = strarray_find_case(state->counted_flags, lookup, 0);
+		    if (i >= 0) {
+			dlist_setflag(flist, "FLAG", lookup);
+			dlist_setnum32(flist, "COUNT", conv->counts[i]);
 		    }
-		    dlist_setflag(flist, "FLAG", lookup);
-		    dlist_setnum32(flist, "COUNT", val);
 		}
 	    }
 	}
@@ -4674,7 +4672,7 @@ static void do_xconvmeta(const char *tag,
 	}
 
 	if (conv && conv->exists)
-	    do_one_xconvmeta(cid, conv, itemlist);
+	    do_one_xconvmeta(state, cid, conv, itemlist);
 
 	conversation_free(conv);
     }
@@ -4844,7 +4842,7 @@ static int xconvfetch_lookup(struct conversations_state *statep,
     {
 	struct dlist *dl = dlist_newlist(NULL, "");
 	dlist_setatom(dl, "", "MODSEQ");
-	do_one_xconvmeta(cid, conv, dl);
+	do_one_xconvmeta(statep, cid, conv, dl);
 	dlist_free(&dl);
     }
 
