@@ -1414,6 +1414,7 @@ struct annotate_f_entry_list
 static const annotate_entrydesc_t message_builtin_entries[] =
 {
     {
+	/* RFC5257 defines /altsubject with both .shared & .priv */
 	"/altsubject",
 	ATTRIB_TYPE_STRING,
 	BACKEND_ONLY,
@@ -1423,6 +1424,7 @@ static const annotate_entrydesc_t message_builtin_entries[] =
 	annotation_set_todb,
 	NULL
     },{
+	/* RFC5257 defines /comment with both .shared & .priv */
 	"/comment",
 	ATTRIB_TYPE_STRING,
 	BACKEND_ONLY,
@@ -1449,6 +1451,12 @@ static const annotate_entrydesc_t message_db_entry =
 static const annotate_entrydesc_t mailbox_builtin_entries[] =
 {
     {
+	/*
+	 * This entry was defined in the early ANNOTATMORE drafts but
+	 * disappeared as of draft 13 and didn't make it into the final
+	 * RFC.  We keep it around because it's not too hard to
+	 * implement.
+	 */
 	"/check",
 	ATTRIB_TYPE_BOOLEAN,
 	BACKEND_ONLY,
@@ -1458,6 +1466,12 @@ static const annotate_entrydesc_t mailbox_builtin_entries[] =
 	annotation_set_todb,
 	NULL
     },{
+	/*
+	 * This entry was defined in the early ANNOTATMORE drafts but
+	 * disappeared as of draft 13 and didn't make it into the final
+	 * RFC.  We keep it around because it's not too hard to
+	 * implement.
+	 */
 	"/checkperiod",
 	ATTRIB_TYPE_UINT,
 	BACKEND_ONLY,
@@ -1467,6 +1481,7 @@ static const annotate_entrydesc_t mailbox_builtin_entries[] =
 	annotation_set_todb,
 	NULL
     },{
+	/* RFC5464 defines /shared/comment and /private/comment */
 	"/comment",
 	ATTRIB_TYPE_STRING,
 	BACKEND_ONLY,
@@ -1476,6 +1491,12 @@ static const annotate_entrydesc_t mailbox_builtin_entries[] =
 	annotation_set_todb,
 	NULL
     },{
+	/*
+	 * This entry was defined in the early ANNOTATMORE drafts but
+	 * disappeared as of draft 13 and didn't make it into the final
+	 * RFC.  We keep it around because it's not too hard to
+	 * implement, even though we don't check the format.
+	 */
 	"/sort",
 	ATTRIB_TYPE_STRING,
 	BACKEND_ONLY,
@@ -1485,6 +1506,11 @@ static const annotate_entrydesc_t mailbox_builtin_entries[] =
 	annotation_set_todb,
 	NULL
     },{
+	/*
+	 * RFC6154 defines /private/specialuse.  We incorrectly
+	 * implement /shared semantics, as defined in the drafts but not
+	 * the final RFC, by historical accident.
+	 */
 	"/specialuse",
 	ATTRIB_TYPE_STRING,
 	BACKEND_ONLY,
@@ -1494,6 +1520,12 @@ static const annotate_entrydesc_t mailbox_builtin_entries[] =
 	annotation_set_specialuse,
 	NULL
     },{
+	/*
+	 * This entry was defined in the early ANNOTATMORE drafts but
+	 * disappeared as of draft 13 and didn't make it into the final
+	 * RFC.  We keep it around because it's not too hard to
+	 * implement, even though we don't check the format.
+	 */
 	"/thread",
 	ATTRIB_TYPE_STRING,
 	BACKEND_ONLY,
@@ -1639,6 +1671,7 @@ static const annotate_entrydesc_t mailbox_db_entry =
 static const annotate_entrydesc_t server_builtin_entries[] =
 {
     {
+	/* RFC5464 defines /shared/admin. */
 	"/admin",
 	ATTRIB_TYPE_STRING,
 	PROXY_AND_BACKEND,
@@ -1648,6 +1681,7 @@ static const annotate_entrydesc_t server_builtin_entries[] =
 	annotation_set_todb,
 	NULL
     },{
+	/* RFC5464 defines /shared/comment. */
 	"/comment",
 	ATTRIB_TYPE_STRING,
 	PROXY_AND_BACKEND,
@@ -1657,6 +1691,12 @@ static const annotate_entrydesc_t server_builtin_entries[] =
 	annotation_set_todb,
 	NULL
     },{
+	/*
+	 * This entry was defined in the early ANNOTATMORE drafts but
+	 * disappeared as of draft 13 and didn't make it into the final
+	 * RFC.  We keep it around because it's not too hard to
+	 * implement.
+	 */
 	"/motd",
 	ATTRIB_TYPE_STRING,
 	PROXY_AND_BACKEND,
