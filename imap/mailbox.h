@@ -554,4 +554,7 @@ extern unsigned int mailbox_nop_action_count, mailbox_nop_action_tag;
 extern unsigned int mailbox_nop_action_count;
 extern unsigned int mailbox_nop_action_tag;
 
+int mailbox_quota_check(struct mailbox *mailbox,
+			quota_t delta, int wrlock);
+
 #endif /* INCLUDED_MAILBOX_H */

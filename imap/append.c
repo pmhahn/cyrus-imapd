@@ -110,7 +110,6 @@ int append_check(const char *name,
     struct mailbox *mailbox = NULL;
     int myrights;
     int r;
-    struct quota q;
 
     r = mailbox_open_irl(name, &mailbox);
     if (r) return r;
@@ -123,15 +122,7 @@ int append_check(const char *name,
 	goto done;
     }
 
-    q.root = mailbox->quotaroot;
-    r = quota_read(&q, NULL, 0);
-    if (!r) {
-	if (q.limit >= 0 && quotacheck >= 0 &&
-	    q.used + quotacheck > ((uquota_t) q.limit * QUOTA_UNITS)) {
-	    r = IMAP_QUOTA_EXCEEDED;
-	}
-    }
-    else if (r == IMAP_QUOTAROOT_NONEXISTENT) r = 0;
+    r = mailbox_quota_check(mailbox, quotacheck, /*wrlock*/0);
 
 done:
     mailbox_close(&mailbox);
@@ -157,7 +148,6 @@ int append_setup(struct appendstate *as, const char *name,
 		 struct namespace *namespace, int isadmin)
 {
     int r;
-    struct quota q;
 
     memset(as, 0, sizeof(*as));
 
@@ -173,16 +163,7 @@ int append_setup(struct appendstate *as, const char *name,
 	return r;
     }
 
-    q.root = as->mailbox->quotaroot;
-    r = quota_read(&q, NULL, 0);
-    if (!r) {
-	if (q.limit >= 0 && quotacheck >= 0 &&
-	    q.used + quotacheck > ((uquota_t) q.limit * QUOTA_UNITS)) {
-	    r = IMAP_QUOTA_EXCEEDED;
-	}
-    }
-    else if (r == IMAP_QUOTAROOT_NONEXISTENT) r = 0;
-
+    r = mailbox_quota_check(as->mailbox, quotacheck, /*wrlock*/0);
     if (r) {
 	mailbox_close(&as->mailbox);
 	return r;
