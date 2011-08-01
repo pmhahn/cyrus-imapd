@@ -3322,7 +3322,7 @@ static int deliver(message_data_t *msg)
 		    }            
 		}                
 		else {           
-		    r = append_commit(&as, 0, NULL, &uid, NULL, NULL);
+		    r = append_commit(&as, NULL, &uid, NULL, NULL);
 		}
 	    }
 
