@@ -3964,7 +3964,7 @@ static void section_list_append(struct section **l,
 
     while (*tail) tail = &(*tail)->next;
 
-    *tail = xmalloc(sizeof(struct strlist));
+    *tail = xmalloc(sizeof(struct section));
     (*tail)->name = xstrdup(name);
     (*tail)->octetinfo = *oi;
     (*tail)->next = 0;
