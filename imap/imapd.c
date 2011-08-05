@@ -3862,17 +3862,17 @@ void cmd_select(char *tag, char *cmd, char *name)
 	/* Warn if mailbox is close to or over quota */
 	q.root = imapd_index->mailbox->quotaroot;
 	r = quota_read(&q, NULL, 0);
-	if (!r && q.limit >= 0 && (strcmp(q.root, lastqr) || now > nextalert)) {
+	if (!r && q.limits[QUOTA_STORAGE] >= 0 && (strcmp(q.root, lastqr) || now > nextalert)) {
  	    /* Warn if the following possibilities occur:
  	     * - quotawarnkb not set + quotawarn hit
 	     * - quotawarnkb set larger than mailbox + quotawarn hit
  	     * - quotawarnkb set + hit + quotawarn hit
  	     */
  	    int warnsize = config_getint(IMAPOPT_QUOTAWARNKB);
- 	    if (warnsize <= 0 || warnsize >= q.limit ||
- 	        ((uquota_t) (q.limit - warnsize)) * QUOTA_UNITS < q.used) {
-		usage = ((double) q.used * 100.0) /
-			(double) ((uquota_t) q.limit * QUOTA_UNITS);
+	    if (warnsize <= 0 || warnsize >= q.limits[QUOTA_STORAGE] ||
+		((uquota_t) (q.limits[QUOTA_STORAGE] - warnsize)) * QUOTA_UNITS < q.useds[QUOTA_STORAGE]) {
+		usage = ((double) q.useds[QUOTA_STORAGE] * 100.0) /
+			(double) ((uquota_t) q.limits[QUOTA_STORAGE] * QUOTA_UNITS);
 		if (usage >= 100.0) {
 		    prot_printf(imapd_out, "* NO [ALERT] %s\r\n",
 				error_message(IMAP_NO_OVERQUOTA));
@@ -5888,7 +5888,14 @@ void cmd_create(char *tag, char *name, struct dlist *extargs, int localonly)
 				       0, 0, 0, extargs);
 	    
 	    if (!r && autocreatequota > 0) {
-		(void) mboxlist_setquota(mailboxname, autocreatequota, 0);
+		int res;
+		int newquotas[QUOTA_NUMRESOURCES];
+
+		for (res = 0 ; res < QUOTA_NUMRESOURCES ; res++)
+		    newquotas[res] = QUOTA_UNLIMITED;
+		newquotas[QUOTA_STORAGE] = autocreatequota;
+
+		(void) mboxlist_setquotas(mailboxname, newquotas, 0);
 	    }
 	}
     }
@@ -7224,6 +7231,7 @@ static int quota_cb(char *name, int matchlen __attribute__((unused)),
     return r;
 }
 
+
 /*
  * Perform a GETQUOTA command
  */
@@ -7234,6 +7242,8 @@ void cmd_getquota(const char *tag, const char *name)
     char internalname[MAX_MAILBOX_BUFFER];
     struct mboxlist_entry *mbentry = NULL;
     struct quota q;
+    int res;
+    const char *sep;
 
     imapd_check(NULL, 0);
 
@@ -7295,9 +7305,15 @@ void cmd_getquota(const char *tag, const char *name)
     prot_printf(imapd_out, "* QUOTA ");
     prot_printastring(imapd_out, name);
     prot_printf(imapd_out, " (");
-    if (q.limit >= 0) {
-	prot_printf(imapd_out, "STORAGE " UQUOTA_T_FMT " %d",
-		    q.used/QUOTA_UNITS, q.limit);
+    sep = "";
+    for (res = 0 ; res < QUOTA_NUMRESOURCES ; res++) {
+	if (q.limits[res] >= 0) {
+	    prot_printf(imapd_out, "%s%s " UQUOTA_T_FMT " %d",
+			sep, quota_names[res],
+			q.useds[res]/QUOTA_UNITS,
+			q.limits[res]);
+	    sep = " ";
+	}
     }
     prot_printf(imapd_out, ")\r\n");
 
@@ -7371,6 +7387,8 @@ void cmd_getquotaroot(const char *tag, const char *name)
 	prot_printastring(imapd_out, name);
 	if (mailbox->quotaroot) {
 	    struct quota q;
+	    int res;
+	    const char *sep = "";
 	    (*imapd_namespace.mboxname_toexternal)(&imapd_namespace,
 						   mailbox->quotaroot,
 						   imapd_userid, mailboxname);
@@ -7382,10 +7400,14 @@ void cmd_getquotaroot(const char *tag, const char *name)
 		prot_printf(imapd_out, "\r\n* QUOTA ");
 		prot_printastring(imapd_out, mailboxname);
 		prot_printf(imapd_out, " (");
-		if (q.limit >= 0) {
-		    prot_printf(imapd_out, "STORAGE " UQUOTA_T_FMT " %d",
-				q.used/QUOTA_UNITS,
-				q.limit);
+		for (res = 0 ; res < QUOTA_NUMRESOURCES ; res++) {
+		    if (q.limits[res] >= 0) {
+			prot_printf(imapd_out, "%s%s " UQUOTA_T_FMT " %d",
+				    sep, quota_names[res],
+				    q.useds[res]/QUOTA_UNITS,
+				    q.limits[res]);
+			sep = " ";
+		    }
 		}
 		(void)prot_putc(')', imapd_out);
 	    }
@@ -7412,7 +7434,8 @@ void cmd_getquotaroot(const char *tag, const char *name)
  */
 void cmd_setquota(const char *tag, const char *quotaroot)
 {
-    int newquota = -1;
+    int newquotas[QUOTA_NUMRESOURCES];
+    int res;
     int c;
     int force = 0;
     static struct buf arg;
@@ -7485,12 +7508,16 @@ void cmd_setquota(const char *tag, const char *quotaroot)
     c = prot_getc(imapd_in);
     if (c != '(') goto badlist;
 
+    for (res = 0 ; res < QUOTA_NUMRESOURCES ; res++)
+	newquotas[res] = QUOTA_UNLIMITED;
+
     c = getword(imapd_in, &arg);
     if (c != ')' || arg.s[0] != '\0') {
 	for (;;) {
 	    int v;
 	    if (c != ' ') goto badlist;
-	    if (strcasecmp(arg.s, "STORAGE")) {
+	    res = quota_name_to_resource(arg.s);
+	    if (res < 0) {
 		r = IMAP_UNSUPPORTED_QUOTA;
 		goto out;
 	    }
@@ -7503,8 +7530,9 @@ void cmd_setquota(const char *tag, const char *quotaroot)
 		v = v * 10 + *p - '0';
                 if (v < 0) goto badlist; /* overflow */
 	    }
-	    newquota = v;
+	    newquotas[res] = v;
 	    if (c == ')') break;
+	    c = getword(imapd_in, &arg);
 	}
     }
     c = prot_getc(imapd_in);
@@ -7515,7 +7543,7 @@ void cmd_setquota(const char *tag, const char *quotaroot)
 	return;
     }
 
-    r = mboxlist_setquota(mailboxname, newquota, force);
+    r = mboxlist_setquotas(mailboxname, newquotas, force);
 
     imapd_check(NULL, 0);
 out:
@@ -9450,7 +9478,6 @@ int getsearchcriteria(char *tag, struct searchargs *searchargs,
 	else goto badcri;
 	break;
 
-
     default:
     badcri:
 	prot_printf(imapd_out, "%s BAD Invalid Search criteria\r\n", tag);
@@ -10307,11 +10334,13 @@ static int xfer_setquotaroot(struct xfer_header *xfer, const char *mboxname)
     if (r == IMAP_QUOTAROOT_NONEXISTENT) return 0;
     if (r) return r;
     
+    /* gnb:TODO ... also pass the non-STORAGE limits?? */
     /* note use of + to force the setting of a nonexistant
      * quotaroot */
     prot_printf(xfer->be->out, "Q01 SETQUOTA {" SIZE_T_FMT "+}\r\n" \
-		"+%s (STORAGE %d)\r\n",
-		strlen(extname)+1, extname, quota.limit);
+		"+%s (%s %d)\r\n",
+		strlen(extname)+1, extname,
+		quota_names[QUOTA_STORAGE], quota.limits[QUOTA_STORAGE]);
     r = getresult(xfer->be->in, "Q01");
     if (r) syslog(LOG_ERR,
 		  "Could not move mailbox: %s, " \
