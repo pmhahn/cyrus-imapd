@@ -1662,6 +1662,7 @@ static int read_one_annot(const char *mailbox __attribute__((unused)),
  * for the message given by @mailbox and @record, returning them
  * as a new sync_annot_list.  The caller should free the new
  * list with sync_annot_list_free().
+ * If record is NULL, return the mailbox annotations
  *
  * Returns: non-zero on error,
  *	    resulting sync_annot_list in *@resp
@@ -1671,7 +1672,7 @@ int read_annotations(const struct mailbox *mailbox,
 		     struct sync_annot_list **resp)
 {
     *resp = NULL;
-    return annotatemore_findall(mailbox->name, record->uid,
+    return annotatemore_findall(mailbox->name, record ? record->uid : 0,
 				/* all entries*/"*",
 				read_one_annot, (void *)resp);
 }
@@ -1741,6 +1742,7 @@ int decode_annotations(/*const*/struct dlist *annots,
  * list of annotations to the local annotation database, storing new values
  * or deleting old values as necessary.  Manages its own annotations
  * transaction.
+ * Record may be null, to process mailbox annotations.
  */
 int apply_annotations(struct mailbox *mailbox,
 		      const struct index_record *record,
@@ -1758,7 +1760,7 @@ int apply_annotations(struct mailbox *mailbox,
     int started_txn = 0;
     annotate_state_t *astate = annotate_state_new();
 
-    annotate_state_set_message(astate, mailbox, record->uid);
+    annotate_state_set_message(astate, mailbox, record ? record->uid : 0);
 
     /*
      * We rely here on the database scan order resulting in lists
