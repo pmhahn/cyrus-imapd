@@ -1892,6 +1892,7 @@ int sync_choose_cid(const struct index_record *mp,
 
 struct sync_crc_algorithm {
     const char *name;
+    int preference;
     int (*setup)(int);
     void (*begin)(void);
     void (*update)(const struct mailbox *, const struct index_record *, int);
@@ -2050,16 +2051,18 @@ static int sync_crc32_end(char *buf, int maxlen)
 
 static const struct sync_crc_algorithm sync_crc_algorithms[] = {
     { "CRC32",
+	1,
 	sync_crc32_setup,
 	sync_crc32_begin,
 	sync_crc32_update_xor,
 	sync_crc32_end },
     { "CRC32M", /* modulo arithmetic */
+	2,
 	sync_crc32_setup,
 	sync_crc32_begin,
 	sync_crc32_update_plus,
 	sync_crc32_end },
-    { NULL, NULL, NULL, NULL, NULL }
+    { NULL, 0, NULL, NULL, NULL, NULL }
 };
 
 static const struct sync_crc_algorithm *find_algorithm(const char *string)
@@ -2067,20 +2070,21 @@ static const struct sync_crc_algorithm *find_algorithm(const char *string)
     char *b;	    /* temporary writable copy, for tokenising */
     char *word;
     const struct sync_crc_algorithm *alg;
+    const struct sync_crc_algorithm *ret = NULL;
     static const char sep[] = " \t,";
 
     b = xstrdup(string);
     for (word = strtok(b, sep) ; word != NULL ; word = strtok(NULL, sep)) {
 	for (alg = sync_crc_algorithms ; alg->name ; alg++) {
-	    if (!strcasecmp(alg->name, word)) {
-		free(b);
-		return alg;
-	    }
+	    if (ret && ret->preference >= alg->preference)
+		continue; /* already got one as good */
+	    if (!strcasecmp(alg->name, word))
+		ret = alg;
 	}
     }
 
     free(b);
-    return NULL;
+    return ret;
 }
 
 const char *sync_crc_list_algorithms(void)
