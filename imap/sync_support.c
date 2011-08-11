@@ -1915,10 +1915,8 @@ struct sync_crc_algorithm {
 static bit32 sync_crc32;
 static struct buf sync_crc32_buf;
 
-static int sync_crc32_setup(int cflags __attribute__((unused)))
+static int sync_crc32_setup(int cflags)
 {
-    if ((cflags & ~(SYNC_CRC_BASIC|SYNC_CRC_CID)))
-	return IMAP_INVALID_IDENTIFIER;
     if (!(cflags & SYNC_CRC_BASIC))
 	return IMAP_INVALID_IDENTIFIER;
     return 0;
