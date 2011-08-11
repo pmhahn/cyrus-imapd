@@ -2333,9 +2333,13 @@ static int write_entry(const char *mboxname,
 	do {
 	    r = DB->store(d->db, key, keylen, data.s, data.len, tid(d));
 	} while (r == CYRUSDB_AGAIN);
-	sync_log_annotation(mboxname);
 	buf_free(&data);
     }
+
+    if (*mboxname)
+	sync_log_mailbox(mboxname);
+    else
+	sync_log_annotation(mboxname);
 
     if (quota && quota->root)
 	quota_use(quota, QUOTA_ANNOTSTORAGE, value->len - oldlen);
@@ -2468,8 +2472,6 @@ static int store_cb(annotate_state_t *state)
     r = _annotate_store_entries(state);
     if (r)
 	goto cleanup;
-
-    sync_log_annotation(state->int_mboxname);
 
     state->count++;
 
@@ -2830,12 +2832,7 @@ int annotate_state_store(annotate_state_t *state, struct entryattlist *l)
     }
 
     if (state->which == ANNOTATION_SCOPE_SERVER) {
-
-	if (state->entry_list) {
-	    r = _annotate_store_entries(state);
-
-	    if (!r) sync_log_annotation("");
-	}
+	r = _annotate_store_entries(state);
     }
 
     else if (state->which == ANNOTATION_SCOPE_MAILBOX) {
@@ -2867,8 +2864,6 @@ int annotate_state_store(annotate_state_t *state, struct entryattlist *l)
 	r = annotate_state_write_finish(state);
 	if (r)
 	    goto cleanup;
-
-	sync_log_annotation("");
     }
 
     if (r)
