@@ -3046,6 +3046,7 @@ static int index_fetchreply(struct index_state *state, uint32_t msgno,
 	r = index_fetchannotations(state, msgno, fetchargs);
 	r = 0;
 	prot_printf(state->out, ")");
+	sepchar = ' ';
     }
     if (fetchitems & FETCH_FILESIZE) {
 	if (!msg_base) {
