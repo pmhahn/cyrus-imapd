@@ -99,13 +99,15 @@ static void append_setseen(struct appendstate *as, struct index_record *record);
  * Arguments:
  *	name	   - name of mailbox directory
  *	aclcheck   - user must have these rights on mailbox ACL
- *	quotacheck - mailbox must have this much quota left
+ *	quotastorage_check - mailbox must have this much storage quota left
+ *		     (-1 means don't care about quota)
+ *	quotamessage_check - mailbox must have this much message quota left
  *		     (-1 means don't care about quota)
  *
  */
 int append_check(const char *name,
 		 struct auth_state *auth_state,
-		 long aclcheck, quota_t quotacheck)
+		 long aclcheck, quota_t quotastorage_check, quota_t quotamessage_check)
 {
     struct mailbox *mailbox = NULL;
     int myrights;
@@ -122,7 +124,7 @@ int append_check(const char *name,
 	goto done;
     }
 
-    r = mailbox_quota_check(mailbox, quotacheck, /*wrlock*/0);
+    r = mailbox_quota_check(mailbox, quotastorage_check, quotamessage_check, /*wrlock*/0);
 
 done:
     mailbox_close(&mailbox);
@@ -136,7 +138,9 @@ done:
  * Arguments:
  *	name	   - name of mailbox directory
  *	aclcheck   - user must have these rights on mailbox ACL
- *	quotacheck - mailbox must have this much quota left
+ *	quotastorage_check - mailbox must have this much storage quota left
+ *		     (-1 means don't care about quota)
+ *	quotamessage_check - mailbox must have this much message quota left
  *		     (-1 means don't care about quota)
  *
  * On success, the struct pointed to by 'as' is set up.
@@ -144,7 +148,7 @@ done:
  */
 int append_setup(struct appendstate *as, const char *name,
 		 const char *userid, struct auth_state *auth_state,
-		 long aclcheck, quota_t quotacheck,
+		 long aclcheck, quota_t quotastorage_check, quota_t quotamessage_check,
 		 struct namespace *namespace, int isadmin)
 {
     int r;
@@ -163,7 +167,7 @@ int append_setup(struct appendstate *as, const char *name,
 	return r;
     }
 
-    r = mailbox_quota_check(as->mailbox, quotacheck, /*wrlock*/0);
+    r = mailbox_quota_check(as->mailbox, quotastorage_check, quotamessage_check, /*wrlock*/0);
     if (r) {
 	mailbox_close(&as->mailbox);
 	return r;
