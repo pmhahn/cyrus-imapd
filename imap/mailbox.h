@@ -237,8 +237,7 @@ struct mailbox {
     int quota_dirty;
     int has_changed;
     time_t last_updated; /* for appends*/
-    quota_t quotastorage_previously_used; /* for quota change */
-    quota_t quotamessage_previously_used; /* for quota change */
+    quota_t quota_previously_used[QUOTA_NUMRESOURCES]; /* for quota change */
 };
 
 /* Offsets of index/expunge header fields
@@ -560,5 +559,7 @@ extern unsigned int mailbox_nop_action_tag;
 
 int mailbox_quota_check(struct mailbox *mailbox,
 			quota_t deltastorage, quota_t deltamessage, int wrlock);
+void mailbox_get_usage(struct mailbox *mailbox,
+			quota_t usage[QUOTA_NUMRESOURCES]);
 
 #endif /* INCLUDED_MAILBOX_H */
