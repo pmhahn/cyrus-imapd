@@ -1907,9 +1907,6 @@ int apply_annotations(struct mailbox *mailbox,
 	    if (r)
 		break;
 	    started_txn = 1;
-	    r = annotate_state_write_start(astate);
-	    if (r)
-		break;
 	}
 
 	r = annotate_state_write(astate, chosen->entry,
@@ -1917,9 +1914,6 @@ int apply_annotations(struct mailbox *mailbox,
 	if (r)
 	    break;
     }
-
-    if (!r)
-	r = annotate_state_write_finish(astate);
 
     if (started_txn) {
 	if (r)
