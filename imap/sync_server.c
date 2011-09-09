@@ -1441,6 +1441,7 @@ static int do_mailbox(struct dlist *kin)
 
 	r = read_annotations(mailbox, NULL, &rannots);
 	if (r) {
+	    sync_annot_list_free(&mannots);
 	    mailbox_close(&mailbox);
 	    return r;
 	}
