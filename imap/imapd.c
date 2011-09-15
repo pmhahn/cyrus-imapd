@@ -8849,13 +8849,13 @@ static void cmd_getmetadata(const char *tag, char *mboxpat)
     basesize = maxsize;
     if (!*mboxpat) {
 	annotate_state_set_server(astate);
-	r = annotate_state_fetch(astate, &entries, &attribs,
+	r = annotate_state_fetch(astate, &newe, &newa,
 				 getmetadata_response, NULL, sizeptr);
     }
     else {
 	struct annot_fetch_rock arock;
-	arock.entries = &entries;
-	arock.attribs = &attribs;
+	arock.entries = &newe;
+	arock.attribs = &newa;
 	arock.callback = getmetadata_response;
 	arock.sizeptr = sizeptr;
 	r = annotate_apply_mailboxes(astate, mboxpat, annot_fetch_cb, &arock);
