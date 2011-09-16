@@ -2735,7 +2735,7 @@ static int annotation_set_specialuse(annotate_state_t *state,
 	}
     }
 
-    r = mboxlist_setspecialuse(state->mailbox->name, val);
+    r = mboxlist_setspecialuse(state->mailbox, val);
 
 done:
     strarray_free(specialuse_extra);

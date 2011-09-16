@@ -1523,8 +1523,7 @@ static int do_mailbox(struct dlist *kin)
      * we want to check it's needed first. */
     if (!specialuse || !mailbox->specialuse || 
 	strcmp(specialuse, mailbox->specialuse)) {
-	mailbox_close(&mailbox);
-	r = mboxlist_setspecialuse(mboxname, specialuse);
+	r = mboxlist_setspecialuse(mailbox, specialuse);
     }
 
     mailbox_close(&mailbox);
