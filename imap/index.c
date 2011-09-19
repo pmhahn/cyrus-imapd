@@ -276,6 +276,9 @@ int index_expunge(struct index_state *state, char *sequence)
     r = index_lock(state);
     if (r) return r;
 
+    r = annotatemore_begin();
+    if (r) return r;
+
     /* XXX - earlier list if the sequence names UIDs that don't exist? */
     seq = _parse_sequence(state, sequence, 1);
 
@@ -305,6 +308,11 @@ int index_expunge(struct index_state *state, char *sequence)
     }
 
     seqset_free(seq);
+
+    if (r)
+	annotatemore_abort();
+    else
+	r = annotatemore_commit();
 
     /* unlock before responding */
     index_unlock(state);
