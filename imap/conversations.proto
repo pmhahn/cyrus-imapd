@@ -1,0 +1,35 @@
+
+message ConvFolderRecord {
+    required uint32_t version = 1;
+    required uint64_t ModSeq = 2;
+    required uint32_t Exists = 4;
+    required uint32_t Unseen = 5;
+    repeated uint32_t Counts = 6;
+}
+
+message ConvIdRecord {
+    message ConvFolderRecord {
+	required uint32_t FolderId = 1;
+	required uint64_t ModSeq = 2;
+	required uint32_t NumRecords = 3;
+	required uint32_t Exists = 3;
+    }
+
+    message ConvSenderRecord {
+	optional string Name = 1;
+	optional string Route = 2;
+	required string Mailbox = 3;
+	required string Domain = 4;
+    }
+
+    required uint32_t version = 1;
+    required uint64_t ModSeq = 2;
+    required uint32_t NumRecords = 3;
+    required uint32_t Exists = 4;
+    required uint32_t Unseen = 5;
+    repeated uint32_t Counts = 6;
+
+    repeated ConvFolderRecord Folders = 7;
+
+    repeated ConvSenderRecord Senders = 8;
+}
