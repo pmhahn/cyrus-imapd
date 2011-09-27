@@ -81,6 +81,7 @@
 #include "times.h"
 
 #include "conversations.h"
+#include "conversations.pb-c.h"
 
 
 #define CONVERSATION_ID_STRMAX	    (1+sizeof(conversation_id_t)*2)
@@ -434,12 +435,12 @@ int _conversation_save(struct conversations_state *state,
 		       const char *key, int keylen,
 		       conversation_t *conv)
 {
-    struct dlist *dl, *n, *nn;
-    struct buf buf = BUF_INITIALIZER;
     const conv_folder_t *folder;
     const conv_sender_t *sender;
-    int version = CONVERSATIONS_VERSION;
     int i;
+    ConvIdRecord cr = CONV_ID_RECORD__INIT;
+    uint8_t *buf;
+    size_t bufsize;
     int r = 0;
 
     /* see if any 'F' keys need to be changed */
@@ -490,56 +491,67 @@ int _conversation_save(struct conversations_state *state,
 	}
     }
 
-    if (!conv->num_records)
+    if (!conv->num_records) {
+	r = DB->delete(state->db, key, keylen, &state->txn, 1);
 	goto done;
-
-    dl = dlist_newkvlist(NULL, NULL);
-    dlist_setnum64(dl, "MODSEQ", conv->modseq);
-    dlist_setnum32(dl, "NUMRECORDS", conv->num_records);
-    dlist_setnum32(dl, "EXISTS", conv->exists);
-    dlist_setnum32(dl, "UNSEEN", conv->unseen);
-    if (state->counted_flags) {
-	n = dlist_newlist(dl, "COUNTS");
-	for (i = 0; i < state->counted_flags->count; i++) {
-	    const char *flag = strarray_nth(state->counted_flags, i);
-	    dlist_setnum32(n, flag, conv->counts[i]);
-	}
     }
 
-    n = dlist_newlist(dl, "FOLDER");
+    cr.version = 1;
+    cr.modseq = conv->modseq;
+    cr.numrecords = conv->num_records;
+    cr.exists = conv->exists;
+    cr.unseen = conv->unseen;
+    cr.n_counts = state->counted_flags->count;
+    if (state->counted_flags) {
+	cr.counts = xmalloc(sizeof(uint32_t) * cr.n_counts);
+	for (i = 0; i < state->counted_flags->count; i++)
+	    cr.counts[i] = conv->counts[i];
+    }
+
+    cr.n_folders = 0;
     for (folder = conv->folders ; folder ; folder = folder->next) {
 	if (!folder->num_records)
 	    continue;
-	nn = dlist_newkvlist(n, "FOLDER");
-	dlist_setatom(nn, "MBOXNAME", folder->mboxname);
-	dlist_setnum64(nn, "MODSEQ", folder->modseq);
-	dlist_setnum32(nn, "NUMRECORDS", folder->num_records);
-	dlist_setnum32(nn, "EXISTS", folder->exists);
+	cr.n_folders++;
+    }
+    cr.folders = xmalloc(sizeof(ConvIdRecord__ConvFolderRecord *) * cr.n_folders);
+    for (i = 0, folder = conv->folders ; folder; i++, folder = folder->next) {
+	if (!folder->num_records)
+	    continue;
+	cr.folders[i] = xmalloc(sizeof(ConvIdRecord__ConvFolderRecord));
+	conv_id_record__conv_folder_record__init(cr.folders[i]);
+	cr.folders[i]->mboxname = folder->mboxname;
+	cr.folders[i]->modseq = folder->modseq;
+	cr.folders[i]->numrecords = folder->num_records;
+	cr.folders[i]->exists = folder->exists;
     }
 
-    n = dlist_newlist(dl, "SENDER");
     for (sender = conv->senders ; sender ; sender = sender->next) {
 	/* there's no refcounting of senders, they last forever */
-	nn = dlist_newkvlist(n, "SENDER");
-	/* envelope form */
-	if (sender->name) dlist_setatom(nn, "NAME", sender->name);
-	if (sender->route) dlist_setatom(nn, "ROUTE", sender->route);
-	dlist_setatom(nn, "MAILBOX", sender->mailbox);
-	dlist_setatom(nn, "DOMAIN", sender->domain);
+	cr.n_senders++;
     }
 
-    buf_printf(&buf, "%d ", version);
-    dlist_printbuf(dl, 0, &buf);
-    dlist_free(&dl);
+    cr.senders = xmalloc(sizeof(ConvIdRecord__ConvSenderRecord *) * cr.n_senders);
+    for (i = 0, sender = conv->senders ; sender; i++, sender = sender->next) {
+	cr.senders[i] = xmalloc(sizeof(ConvIdRecord__ConvSenderRecord));
+	conv_id_record__conv_sender_record__init(cr.senders[i]);
+	cr.senders[i]->name = sender->name;
+	cr.senders[i]->route = sender->route;
+	cr.senders[i]->mailbox = sender->mailbox;
+	cr.senders[i]->domain = sender->domain;
+    }
+
+    bufsize = conv_id_record__get_packed_size(&cr) + 1;
+    buf = xmalloc(bufsize);
+    buf[0] = '*';
+    conv_id_record__pack(&cr, buf + 1);
 
     r = DB->store(state->db,
 		  key, keylen,
-		  buf.s, buf.len,
+		  (const char *)buf, bufsize,
 		  &state->txn);
 
 done:
-
-    buf_free(&buf);
     if (!r)
 	conv->dirty = 0;
     return r;
@@ -675,6 +687,52 @@ int conversation_setstatus(struct conversations_state *state,
     return r;
 }
 
+static int conv_load_pb(struct conversations_state *state,
+		        const char *data, int datalen,
+		        conversation_t **convp)
+{
+    conversation_t *conv;
+    ConvIdRecord *cr = NULL;
+    size_t i;
+
+    cr = conv_id_record__unpack(NULL, (size_t)datalen, (const uint8_t *)data);
+
+    conv = conversation_new(state);
+
+    conv->modseq = cr->modseq;
+    conv->num_records = cr->numrecords;
+    conv->exists = cr->exists;
+    conv->unseen = cr->unseen;
+    for (i = 0; i < cr->n_counts; i++) {
+	conv->counts[i] = cr->counts[i]; 
+    }
+
+    for (i = 0; i < cr->n_folders; i++) {
+	conv_folder_t *folder;
+	folder = conversation_add_folder(conv, cr->folders[i]->foldername);
+	folder->modseq = cr->folders[i]->modseq;
+	folder->num_records = cr->folders[i]->numrecords;
+	folder->exists = cr->folders[i]->exists;
+	folder->prev_exists = folder->exists;
+    }
+
+    for (i = 0; i < cr->n_senders; i++) {
+	conversation_add_sender(conv,
+				cr->senders[i]->name,
+				cr->senders[i]->route,
+				cr->senders[i]->mailbox,
+				cr->senders[i]->domain);
+    }
+
+    conv->prev_unseen = conv->unseen;
+
+    conv_id_record__free_unpacked(cr, NULL);
+
+    conv->dirty = 0;
+    *convp = conv;
+    return 0;
+}
+
 int _conversation_load(struct conversations_state *state,
 		       const char *data, int datalen,
 		       conversation_t **convp)
@@ -688,6 +746,10 @@ int _conversation_load(struct conversations_state *state,
     conversation_t *conv;
     conv_folder_t *folder;
     int r;
+
+    if (data[0] == '*') {
+	return conv_load_pb(state, data+1, datalen-1, convp);
+    }
 
     r = parsenum(data, &rest, datalen, &version);
     if (r) {
