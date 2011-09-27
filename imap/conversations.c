@@ -501,8 +501,8 @@ int _conversation_save(struct conversations_state *state,
     cr.numrecords = conv->num_records;
     cr.exists = conv->exists;
     cr.unseen = conv->unseen;
-    cr.n_counts = state->counted_flags->count;
     if (state->counted_flags) {
+	cr.n_counts = state->counted_flags->count;
 	cr.counts = xmalloc(sizeof(uint32_t) * cr.n_counts);
 	for (i = 0; i < state->counted_flags->count; i++)
 	    cr.counts[i] = conv->counts[i];
