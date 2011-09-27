@@ -103,7 +103,7 @@ LOBJS= append.o mailbox.o mboxlist.o mupdate-client.o mboxname.o message.o \
 	sync_log.o $(SEEN) mboxkey.o backend.o tls.o message_guid.o \
 	statuscache_db.o userdeny_db.o sequence.o upgrade_index.o \
 	dlist.o version.o rfc822_header.o conversations.o \
-	@GPB_LOBJS@
+	conversations.pb-c.o @GPB_LOBJS@
 
 %.pb-c.c: %.proto
 	@PROTOC_C@ --c_out=. $<

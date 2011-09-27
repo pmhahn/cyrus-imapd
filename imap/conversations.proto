@@ -1,17 +1,17 @@
 
 message ConvFolderRecord {
-    required uint32_t version = 1;
-    required uint64_t ModSeq = 2;
-    required uint32_t Exists = 3;
-    required uint32_t Unseen = 4;
+    required uint32 version = 1;
+    required uint64 ModSeq = 2;
+    required uint32 Exists = 3;
+    required uint32 Unseen = 4;
 }
 
 message ConvIdRecord {
     message ConvFolderRecord {
 	required string FolderName = 1;
-	required uint64_t ModSeq = 2;
-	required uint32_t NumRecords = 3;
-	required uint32_t Exists = 3;
+	required uint64 ModSeq = 2;
+	required uint32 NumRecords = 3;
+	required uint32 Exists = 4;
     }
 
     message ConvSenderRecord {
@@ -21,12 +21,12 @@ message ConvIdRecord {
 	required string Domain = 4;
     }
 
-    required uint32_t version = 1;
-    required uint64_t ModSeq = 2;
-    required uint32_t NumRecords = 3;
-    required uint32_t Exists = 4;
-    required uint32_t Unseen = 5;
-    repeated uint32_t Counts = 6;
+    required uint32 version = 1;
+    required uint64 ModSeq = 2;
+    required uint32 NumRecords = 3;
+    required uint32 Exists = 4;
+    required uint32 Unseen = 5;
+    repeated uint32 Counts = 6;
 
     repeated ConvFolderRecord Folders = 7;
 
