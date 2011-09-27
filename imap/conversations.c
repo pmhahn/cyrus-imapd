@@ -709,7 +709,7 @@ static int conv_load_pb(struct conversations_state *state,
 
     for (i = 0; i < cr->n_folders; i++) {
 	conv_folder_t *folder;
-	folder = conversation_add_folder(conv, cr->folders[i]->foldername);
+	folder = conversation_add_folder(conv, cr->folders[i]->mboxname);
 	folder->modseq = cr->folders[i]->modseq;
 	folder->num_records = cr->folders[i]->numrecords;
 	folder->exists = cr->folders[i]->exists;
