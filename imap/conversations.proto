@@ -8,7 +8,7 @@ message ConvFolderRecord {
 
 message ConvIdRecord {
     message ConvFolderRecord {
-	required string MboxName = 1;
+	required uint32 FolderNum = 1;
 	required uint64 ModSeq = 2;
 	required uint32 NumRecords = 3;
 	required uint32 Exists = 4;

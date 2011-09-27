@@ -88,6 +88,8 @@
 
 /* per user conversations db extension */
 #define FNAME_CONVERSATIONS_SUFFIX "conversations"
+#define FNKEY "$FOLDER_NAMES"
+#define CFKEY "$COUNTED_FLAGS"
 
 #define DB config_conversations_db
 
@@ -120,15 +122,17 @@ char *conversations_getmboxpath(const char *mboxname)
     return fname;
 }
 
-static int _init_counted(struct conversations_state *state, const char *val)
+static int _init_counted(struct conversations_state *state,
+			 const char *val, int vallen)
 {
     int r;
-    const char *key = "$COUNTED_FLAGS";
 
-    if (!val) {
+    if (!vallen) {
 	val = config_getstring(IMAPOPT_CONVERSATIONS_COUNTED_FLAGS);
 	if (!val) val = "";
-	r = DB->store(state->db, key, strlen(key), val, strlen(val), &state->txn);
+	vallen = strlen(val);
+	r = DB->store(state->db, CFKEY, strlen(CFKEY),
+		      val, vallen, &state->txn);
 	if (r) {
 	    syslog(LOG_ERR, "Failed to write counted_flags");
 	    return r;
@@ -142,8 +146,8 @@ static int _init_counted(struct conversations_state *state, const char *val)
     }
 
     /* add the value only if there's some flags set */
-    if (strlen(val)) {
-	state->counted_flags = strarray_split(val, " ");
+    if (vallen) {
+	state->counted_flags = strarray_nsplit(val, vallen, " ");
     }
 
     return 0;
@@ -151,13 +155,10 @@ static int _init_counted(struct conversations_state *state, const char *val)
 
 int conversations_open_path(const char *fname, struct conversations_state **statep)
 {
-    int r;
     struct conversations_open *open = NULL;
-    const char *key = "$COUNTED_FLAGS";
-    const char *val;
-    int keylen = strlen(key);
-    int vallen;
-    char *counted = NULL;
+    const char *val = NULL;
+    int vallen = 0;
+    int r = 0;
 
     if (!fname)
 	return IMAP_MAILBOX_BADNAME;
@@ -180,18 +181,28 @@ int conversations_open_path(const char *fname, struct conversations_state **stat
     open_conversations = open;
 
     /* ensure a write lock immediately, and also load the counted flags */
-    r = DB->fetchlock(open->s.db, key, keylen, &val, &vallen, &open->s.txn);
-    if (!r) {
-	/* read a value, we'll use that */
-	counted = xstrndup(val, vallen);
+    DB->fetchlock(open->s.db, CFKEY, strlen(CFKEY),
+		  &val, &vallen, &open->s.txn);
+    _init_counted(&open->s, val, vallen);
+
+    /* we should just read the folder names up front too */
+    open->s.folder_names = strarray_new();
+
+    /* if there's a value, parse as a dlist */
+    if (!DB->fetch(open->s.db, FNKEY, strlen(FNKEY),
+		   &val, &vallen, &open->s.txn)) {
+	struct dlist *dl = NULL;
+	struct dlist *dp;
+	dlist_parsemap(&dl, 0, val, vallen);
+	for (dp = dl->head; dp; dp = dp->next) {
+	    strarray_append(open->s.folder_names, dlist_cstring(dp));
+	}
+	dlist_free(&dl);
     }
-    r = _init_counted(&open->s, counted);
-    free(counted);
 
-    if (!r)
-	*statep = &open->s;
+    *statep = &open->s;
 
-    return r;
+    return 0;
 }
 
 int conversations_open_user(const char *username, struct conversations_state **statep)
@@ -431,6 +442,38 @@ int conversations_get_msgid(struct conversations_state *state,
     return 0;
 }
 
+static int folder_number(struct conversations_state *state,
+			 const char *name)
+{
+    int pos = strarray_find(state->folder_names, name, 0);
+
+    /* if we have to add it, then save the keys back */
+    if (pos < 0) {
+	struct dlist *dl = dlist_newlist(NULL, NULL);
+	struct buf buf = BUF_INITIALIZER;
+	int r;
+	int i;
+
+	pos = strarray_append(state->folder_names, name);
+
+	for (i = 0; i < state->folder_names->count; i++) {
+	    const char *fname = strarray_nth(state->folder_names, i);
+	    dlist_setatom(dl, NULL, fname);
+	}
+
+	dlist_printbuf(dl, 0, &buf);
+
+	/* store must succeed */
+	r = DB->store(state->db, FNKEY, strlen(FNKEY),
+		      buf.s, buf.len, &state->txn);
+
+	buf_free(&buf);
+	if (r) abort();
+    }
+
+    return pos;
+}
+
 int _conversation_save(struct conversations_state *state,
 		       const char *key, int keylen,
 		       conversation_t *conv)
@@ -520,7 +563,7 @@ int _conversation_save(struct conversations_state *state,
 	    continue;
 	cr.folders[i] = xmalloc(sizeof(ConvIdRecord__ConvFolderRecord));
 	conv_id_record__conv_folder_record__init(cr.folders[i]);
-	cr.folders[i]->mboxname = folder->mboxname;
+	cr.folders[i]->foldernum = folder_number(state, folder->mboxname);
 	cr.folders[i]->modseq = folder->modseq;
 	cr.folders[i]->numrecords = folder->num_records;
 	cr.folders[i]->exists = folder->exists;
@@ -708,8 +751,9 @@ static int conv_load_pb(struct conversations_state *state,
     }
 
     for (i = 0; i < cr->n_folders; i++) {
-	conv_folder_t *folder;
-	folder = conversation_add_folder(conv, cr->folders[i]->mboxname);
+	const char *fname = strarray_nth(state->folder_names,
+					 cr->folders[i]->foldernum);
+	conv_folder_t *folder = conversation_add_folder(conv, fname);
 	folder->modseq = cr->folders[i]->modseq;
 	folder->num_records = cr->folders[i]->numrecords;
 	folder->exists = cr->folders[i]->exists;
@@ -1300,10 +1344,14 @@ int conversations_wipe_counts(struct conversations_state *state)
     if (r) return r;
 
     /* wipe counted_flags */
-    r = DB->delete(state->db, "$COUNTED_FLAGS", 14, &state->txn, 1);
+    r = DB->delete(state->db, CFKEY, 14, &state->txn, 1);
     if (r) return r;
 
-    return _init_counted(state, NULL);
+    /* wipe folder names */
+    r = DB->delete(state->db, FNKEY, 14, &state->txn, 1);
+    if (r) return r;
+
+    return _init_counted(state, NULL, 0);
 }
 
 void conversations_dump(struct conversations_state *state, FILE *fp)
