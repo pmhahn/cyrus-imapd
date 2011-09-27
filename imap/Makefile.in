@@ -108,6 +108,8 @@ LOBJS= append.o mailbox.o mboxlist.o mupdate-client.o mboxname.o message.o \
 %.pb-c.c: %.proto
 	@PROTOC_C@ --c_out=. $<
 
+%.pb-c.h: %.pb-c.c
+
 IMAPDOBJS=pushstats.o imapd.o proxy.o imap_proxy.o index.o
 
 LMTPOBJS=lmtpstats.o lmtpengine.o spool.o
@@ -127,7 +129,7 @@ PROGS = imapd lmtpd pop3d \
 
 BUILTSOURCES = imap_err.c imap_err.h pushstats.c pushstats.h \
 	lmtpstats.c lmtpstats.h mupdate_err.c mupdate_err.h \
-	nntp_err.c nntp_err.h
+	nntp_err.c nntp_err.h conversations.pb-c.c conversations.pb-c.h
 
 all: $(BUILTSOURCES) $(PROGS) $(SUIDPROGS)
 
@@ -409,7 +411,7 @@ distclean: clean
 
 check:
 
-depend: imap_err.h
+depend: imap_err.h 
 	${MAKEDEPEND} $(CPPFLAGS) $(DEFS) $(CFLAGS) *.c $(srcdir)/*.c 1>makedepend.log 2>&1
 
 # DO NOT DELETE THIS LINE -- make depend depends on it.
