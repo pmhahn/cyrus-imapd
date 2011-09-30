@@ -270,6 +270,8 @@ void _conv_remove (struct conversations_state **statep)
 	    free(cur->s.path);
 	    if (cur->s.counted_flags)
 		strarray_free(cur->s.counted_flags);
+	    if (cur->s.folder_names)
+		strarray_free(cur->s.folder_names);
 	    free(cur);
 	    *statep = NULL;
 	    return;
@@ -468,6 +470,7 @@ static int folder_number(struct conversations_state *state,
 		      buf.s, buf.len, &state->txn);
 
 	buf_free(&buf);
+	dlist_free(&dl);
 	if (r) abort();
     }
 
@@ -558,7 +561,7 @@ int _conversation_save(struct conversations_state *state,
 	cr.n_folders++;
     }
     cr.folders = xmalloc(sizeof(ConvIdRecord__ConvFolderRecord *) * cr.n_folders);
-    for (i = 0, folder = conv->folders ; folder; i++, folder = folder->next) {
+    for (i = 0, folder = conv->folders ; folder; folder = folder->next) {
 	if (!folder->num_records)
 	    continue;
 	cr.folders[i] = xmalloc(sizeof(ConvIdRecord__ConvFolderRecord));
@@ -567,6 +570,7 @@ int _conversation_save(struct conversations_state *state,
 	cr.folders[i]->modseq = folder->modseq;
 	cr.folders[i]->numrecords = folder->num_records;
 	cr.folders[i]->exists = folder->exists;
+	i++;
     }
 
     for (sender = conv->senders ; sender ; sender = sender->next) {
@@ -593,6 +597,14 @@ int _conversation_save(struct conversations_state *state,
 		  key, keylen,
 		  (const char *)buf, bufsize,
 		  &state->txn);
+    free(buf);
+    for (i = 0 ; i < (int)cr.n_folders ; i++)
+	free(cr.folders[i]);
+    free(cr.folders);
+    for (i = 0 ; i < (int)cr.n_senders ; i++)
+	free(cr.senders[i]);
+    free(cr.senders);
+    free(cr.counts);
 
 done:
     if (!r)
