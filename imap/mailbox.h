@@ -558,8 +558,8 @@ extern unsigned int mailbox_nop_action_count, mailbox_nop_action_tag;
 extern unsigned int mailbox_nop_action_count;
 extern unsigned int mailbox_nop_action_tag;
 
-int mailbox_quota_check(struct mailbox *mailbox,
-			const quota_t delta[QUOTA_NUMRESOURCES]);
+#define mailbox_quota_check(mailbox, delta) \
+	quota_check_useds((mailbox)->quotaroot, delta)
 void mailbox_get_usage(struct mailbox *mailbox,
 			quota_t usage[QUOTA_NUMRESOURCES]);
 void mailbox_use_annot_quota(struct mailbox *mailbox, quota_t diff);
