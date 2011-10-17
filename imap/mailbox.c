@@ -2359,9 +2359,6 @@ int mailbox_rewrite_index_record(struct mailbox *mailbox,
     if ((record->system_flags & FLAG_EXPUNGED) && 
 	!(oldrecord.system_flags & FLAG_EXPUNGED)) {
 
-	if (expunge_mode == IMAP_ENUM_EXPUNGE_MODE_IMMEDIATE)
-	    r = annotate_msg_expunge(mailbox, record->uid);
-
 	if (!mailbox->i.first_expunged ||
 	    mailbox->i.first_expunged > record->last_updated)
 	    mailbox->i.first_expunged = record->last_updated;
@@ -2718,6 +2715,9 @@ static int mailbox_index_repack(struct mailbox *mailbox)
 
     syslog(LOG_INFO, "Repacking mailbox %s", mailbox->name);
 
+    r = annotatemore_begin();
+    if (r) return r;
+
     r = mailbox_repack_setup(mailbox, &repack);
     if (r) goto fail;
 
@@ -2738,6 +2738,8 @@ static int mailbox_index_repack(struct mailbox *mailbox)
 	    /* remove from the conversations tracking counts */
 	    r = mailbox_update_conversations(mailbox, &record, NULL);
 	    if (r) goto fail;
+	    r = annotate_msg_expunge(mailbox, record.uid);
+	    if (r) goto fail;
 	    continue;
 	}
 
@@ -2752,9 +2754,13 @@ static int mailbox_index_repack(struct mailbox *mailbox)
     /* we unlinked any "needs unlink" in the process */
     repack->i.options &= ~(OPT_MAILBOX_NEEDS_REPACK|OPT_MAILBOX_NEEDS_UNLINK);
 
+    r = annotatemore_commit();
+    if (r) goto fail;
+
     return mailbox_repack_commit(&repack);
 
 fail:
+    annotatemore_abort();
     mailbox_repack_abort(&repack);
     return r;
 }
@@ -2847,9 +2853,6 @@ int mailbox_expunge_cleanup(struct mailbox *mailbox, time_t expunge_mark,
     time_t first_expunged = 0;
     int r = 0;
 
-    r = annotatemore_begin();
-    if (r) return r;
-
     /* run the actual expunge phase */
     for (recno = 1; recno <= mailbox->i.num_records; recno++) {
 	if (mailbox_read_index_record(mailbox, recno, &record))
@@ -2884,11 +2887,6 @@ int mailbox_expunge_cleanup(struct mailbox *mailbox, time_t expunge_mark,
 		   mailbox->name, recno);
 	    break;
 	}
-
-	r = annotate_msg_expunge(mailbox, record.uid);
-	if (r)
-	    syslog(LOG_ERR, "failed to expunge annotations for %s uid %d",
-		   mailbox->name, record.uid);
     }
 
     if (dirty) {
@@ -2896,11 +2894,6 @@ int mailbox_expunge_cleanup(struct mailbox *mailbox, time_t expunge_mark,
 	mailbox->i.options |= OPT_MAILBOX_NEEDS_REPACK;
 	mailbox->i.first_expunged = first_expunged;
     }
-
-    if (r)
-	annotatemore_abort();
-    else
-	r = annotatemore_commit();
 
     if (ndeleted) *ndeleted = numdeleted;
 
