@@ -46,7 +46,6 @@
 #define INCLUDED_USER_H
 
 #include "auth.h"
-#include "imap_err.h"
 
 /* path to user's sieve directory */
 const char *user_sieve_path(const char *user);
