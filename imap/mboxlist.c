@@ -1792,12 +1792,7 @@ int mboxlist_setspecialuse(struct mailbox *mailbox, const char *specialuse)
 	goto done;
     }
 
-    r = mailbox_set_specialuse(mailbox, specialuse);
-    if (r) goto done;
-
-    r = mailbox_commit(mailbox);
-    if (r) goto done;
-
+    /* update the entry */
     mbentry->specialuse = specialuse;
     mboxent = mboxlist_entry_cstring(mbentry);
     do {
@@ -1811,6 +1806,13 @@ int mboxlist_setspecialuse(struct mailbox *mailbox, const char *specialuse)
 	r = IMAP_IOERROR;
 	goto done;
     }
+
+    /* update the mailbox and commit */
+    r = mailbox_set_specialuse(mailbox, specialuse);
+    if (r) goto done;
+
+    r = mailbox_commit(mailbox);
+    if (r) goto done;
 
     /* 3. Commit transaction */
     r = DB->commit(mbdb, tid);
