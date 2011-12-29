@@ -1753,6 +1753,7 @@ int main(int argc, char **argv)
     int pidlock_fd = -1;
 
     int i, opt, close_std = 1, daemon_mode = 0;
+    const char *error_log = NULL;
     extern char *optarg;
 
     char *alt_config = NULL;
@@ -1771,9 +1772,9 @@ int main(int argc, char **argv)
     p = getenv("CYRUS_VERBOSE");
     if (p) verbose = atoi(p) + 1;
 #ifdef HAVE_NETSNMP
-    while ((opt = getopt(argc, argv, "C:M:p:l:Ddj:P:x:")) != EOF) {
+    while ((opt = getopt(argc, argv, "C:L:M:p:l:Ddj:P:x:")) != EOF) {
 #else
-    while ((opt = getopt(argc, argv, "C:M:p:l:Ddj:")) != EOF) {
+    while ((opt = getopt(argc, argv, "C:L:M:p:l:Ddj:")) != EOF) {
 #endif
 	switch (opt) {
 	case 'C': /* alt imapd.conf file */
@@ -1797,6 +1798,10 @@ int main(int argc, char **argv)
 	case 'D':
 	    /* Debug Mode */
 	    close_std = 0;
+	    break;
+	case 'L':
+	    /* error log */
+	    error_log = optarg;
 	    break;
 	case 'j':
 	    /* Janitor frequency */
@@ -1822,12 +1827,20 @@ int main(int argc, char **argv)
 
     masterconf_init("master", alt_config);
 
-    if (close_std) {
+    if (close_std || error_log) {
 	/* close stdin/out/err */
 	for (fd = 0; fd < 3; fd++) {
+	    const char *file = (error_log && fd > 0 ?
+				error_log : "/dev/null");
+	    int mode = (fd > 0 ? O_WRONLY : O_RDWR) |
+		       (error_log && fd > 0 ? O_CREAT|O_APPEND : 0);
 	    close(fd);
-	    if (open("/dev/null", O_RDWR, 0) != fd)
-		fatal("couldn't open /dev/null: %m", 2);
+	    if (open(file, mode, 0666) != fd) {
+		char buf[1024];
+		snprintf(buf, sizeof(buf),
+		     "couldn't open %s: %s", file, strerror(errno));
+		fatal(buf, 2);
+	    }
 	}
     }
 
