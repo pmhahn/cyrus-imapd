@@ -370,11 +370,11 @@ static void service_create(struct service *s)
 	    /* udp */
 	    res0->ai_socktype = SOCK_DGRAM;
 	}
- 	res0->ai_addr = (struct sockaddr *)&sunsock;
- 	res0->ai_addrlen = sizeof(sunsock.sun_family) + strlen(s->listen) + 1;
+	res0->ai_addr = (struct sockaddr *)&sunsock;
+	res0->ai_addrlen = sizeof(sunsock.sun_family) + strlen(s->listen) + 1;
 #ifdef SIN6_LEN
- 	res0->ai_addrlen += sizeof(sunsock.sun_len);
- 	sunsock.sun_len = res0->ai_addrlen;
+	res0->ai_addrlen += sizeof(sunsock.sun_len);
+	sunsock.sun_len = res0->ai_addrlen;
 #endif
 	sunsock.sun_family = AF_UNIX;
 	strcpy(sunsock.sun_path, s->listen);
@@ -383,36 +383,36 @@ static void service_create(struct service *s)
 	char *listen, *port;
 	char *listen_addr;
 
- 	memset(&hints, 0, sizeof(hints));
- 	hints.ai_flags = AI_PASSIVE;
- 	if (!strcmp(s->proto, "tcp")) {
- 	    hints.ai_family = PF_UNSPEC;
- 	    hints.ai_socktype = SOCK_STREAM;
- 	} else if (!strcmp(s->proto, "tcp4")) {
- 	    hints.ai_family = PF_INET;
- 	    hints.ai_socktype = SOCK_STREAM;
+	memset(&hints, 0, sizeof(hints));
+	hints.ai_flags = AI_PASSIVE;
+	if (!strcmp(s->proto, "tcp")) {
+	    hints.ai_family = PF_UNSPEC;
+	    hints.ai_socktype = SOCK_STREAM;
+	} else if (!strcmp(s->proto, "tcp4")) {
+	    hints.ai_family = PF_INET;
+	    hints.ai_socktype = SOCK_STREAM;
 #ifdef PF_INET6
- 	} else if (!strcmp(s->proto, "tcp6")) {
- 	    hints.ai_family = PF_INET6;
- 	    hints.ai_socktype = SOCK_STREAM;
+	} else if (!strcmp(s->proto, "tcp6")) {
+	    hints.ai_family = PF_INET6;
+	    hints.ai_socktype = SOCK_STREAM;
 #endif
- 	} else if (!strcmp(s->proto, "udp")) {
- 	    hints.ai_family = PF_UNSPEC;
- 	    hints.ai_socktype = SOCK_DGRAM;
- 	} else if (!strcmp(s->proto, "udp4")) {
- 	    hints.ai_family = PF_INET;
- 	    hints.ai_socktype = SOCK_DGRAM;
+	} else if (!strcmp(s->proto, "udp")) {
+	    hints.ai_family = PF_UNSPEC;
+	    hints.ai_socktype = SOCK_DGRAM;
+	} else if (!strcmp(s->proto, "udp4")) {
+	    hints.ai_family = PF_INET;
+	    hints.ai_socktype = SOCK_DGRAM;
 #ifdef PF_INET6
 	} else if (!strcmp(s->proto, "udp6")) {
- 	    hints.ai_family = PF_INET6;
- 	    hints.ai_socktype = SOCK_DGRAM;
+	    hints.ai_family = PF_INET6;
+	    hints.ai_socktype = SOCK_DGRAM;
 #endif
- 	} else {
-  	    syslog(LOG_INFO, "invalid proto '%s', disabling %s",
+	} else {
+	    syslog(LOG_INFO, "invalid proto '%s', disabling %s",
 		   s->proto, s->name);
 	    service_forget_exec(s);
 	    return;
- 	}
+	}
 
 	/* parse_listen() and resolve_host() are destructive,
 	 * so make a work copy of s->listen
