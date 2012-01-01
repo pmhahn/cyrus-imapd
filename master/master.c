@@ -651,14 +651,14 @@ static void spawn_service(const int si)
     gettimeofday(&now, 0);
     interval = timesub(&s->last_interval_start, &now);
     /* update our fork rate */
-    if (interval >= 0.9*FORKRATE_INTERVAL) {
+    if (interval > 0.0) {
 	double f = pow(FORKRATE_ALPHA, interval/FORKRATE_INTERVAL);
 	s->forkrate = f * s->forkrate +
 		      (1.0-f) * (s->interval_forks/interval);
 	s->interval_forks = 0;
 	s->last_interval_start = now;
     }
-    else if (interval < 0.0) {
+    else {
 	/*
 	 * NTP or similar moved the time-of-day clock backwards more
 	 * than the interval we asked to be delayed for.  Given that, we
@@ -667,6 +667,7 @@ static void spawn_service(const int si)
 	 */
 	s->interval_forks = 0;
 	s->last_interval_start = now;
+	s->forkrate = 0.0;
 	syslog(LOG_WARNING, "time of day clock went backwards");
     }
 
