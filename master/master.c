@@ -996,7 +996,7 @@ static void init_janitor(void)
     schedule_event(evt);
 }
 
-static void child_janitor(time_t now)
+static void child_janitor(void)
 {
     int i;
     struct centry **p;
@@ -1024,7 +1024,7 @@ static void child_janitor(time_t now)
 	while (*p) {
 	    c = *p;
 	    if (c->service_state == SERVICE_STATE_DEAD) {
-		if (c->janitor_deadline < now) {
+		if (c->janitor_deadline < rightnow.tv_sec) {
 		    *p = c->next;
 		    centry_free(c);
 		} else {
@@ -2227,8 +2227,7 @@ int main(int argc, char **argv)
 		}
 	    }
 	}
-	now = time(NULL);
-	child_janitor(now);
+	child_janitor();
 
 #ifdef HAVE_NETSNMP
 	run_alarms();
