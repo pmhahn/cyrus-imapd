@@ -1009,11 +1009,8 @@ static void child_janitor(time_t now)
 	/* overflow protection */
 	i = child_table_size;
     } else {
-	double n;
-
-	n = child_table_size * janitor_frequency *
-	    (double) ((rightnow.tv_sec - janitor_mark.tv_sec) * 1000000 +
-	              rightnow.tv_usec - janitor_mark.tv_usec ) / 1000000;
+	double n = child_table_size * janitor_frequency *
+		    timesub(&rightnow, &janitor_mark);
 	if (n < child_table_size) {
 	    i = n;
 	} else {
