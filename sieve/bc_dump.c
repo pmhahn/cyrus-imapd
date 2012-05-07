@@ -314,14 +314,16 @@ void dump(bytecode_info_t *d, int level)
 	    i+=3;
 	    break;
 
+	case B_VACATION_ORIG:
 	case B_VACATION:
 	    printf("%d:VACATION\n",i);
 	    i++;
 	    i=dump_sl(d,i,level);
-	    printf("SUBJ({%d}%s) MESG({%d}%s)\n DAYS(%d) MIME(%d)\n"
+	    printf("SUBJ({%d}%s) MESG({%d}%s)\n %s(%d) MIME(%d)\n"
 		   " FROM({%d}%s) HANDLE({%d}%s)\n",
 		   d->data[i+1].len, (d->data[i+1].len == -1 ? "[nil]" : d->data[i+2].str),
 		   d->data[i+3].len, (d->data[i+3].len == -1 ? "[nil]" : d->data[i+4].str),
+		   d->data[i].op == B_VACATION_ORIG ? "DAYS" : "SECONDS",
 		   d->data[i+5].value, d->data[i+6].value,
 		   d->data[i+7].len, (d->data[i+7].len == -1 ? "[nil]" : d->data[i+8].str),
 		   d->data[i+9].len, (d->data[i+9].len == -1 ? "[nil]" : d->data[i+10].str));
