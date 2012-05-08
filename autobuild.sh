@@ -69,10 +69,10 @@ else
     echo "Invoked manually"
     echo "(assumed, as one of \$JENKINS_HOME \$BUILD_ID or \$WORKSPACE is missing)"
     BUILD_ID=build$(date +%Y%m%dT%H%M%S)
-    WORKSPACE=$(cd .. ; /bin/pwd)
+    WORKSPACE=$(cd .. && /bin/pwd)
     CYRUS_SRC=$(/bin/pwd)
-    CYRUS_INST=$(cd ../inst ; /bin/pwd)
-    CASSANDANE_SRC=$(cd ../cassandane ; /bin/pwd)
+    CYRUS_INST=$(cd ../inst && /bin/pwd)
+    CASSANDANE_SRC=$(cd ../cassandane && /bin/pwd)
 fi
 
 echo "Build ID is $BUILD_ID"
@@ -153,15 +153,17 @@ make all || fatal "Can't make all"
 make CUFORMAT=junit check || fatal "Can't make check"
 
 # Do a temporary install for Cassandane
-[ -d $CYRUS_INST.old ] && rm -rf $CYRUS_INST.old
-[ -d $CYRUS_INST ] && mv -f $CYRUS_INST $CYRUS_INST.old
-mkdir -p $CYRUS_INST || fatal "$CYRUS_INST: can't mkdir"
-make DESTDIR=$CYRUS_INST install || fatal "Can't install"
+if [ -n "$CYRUS_INST" ]; then
+    [ -d "$CYRUS_INST.old" ] && rm -rf "$CYRUS_INST.old"
+    [ -d "$CYRUS_INST" ] && mv -f "$CYRUS_INST" "$CYRUS_INST.old"
+    mkdir -p "$CYRUS_INST" || fatal "$CYRUS_INST: can't mkdir"
+    make DESTDIR="$CYRUS_INST" install || fatal "Can't install"
+fi
 
 exitcode=0
 
 # Run Cassandane tests
-if [ -d $CASSANDANE_SRC ]; then
+if [ -d "$CYRUS_INST" ] && [ -d "$CASSANDANE_SRC" ]; then
 
 ## Not needed anymore, user cyrus is in group tomcat
 #     if [ -n "$COVERAGE" ]; then
