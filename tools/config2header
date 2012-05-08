@@ -126,6 +126,7 @@ print CFILE <<EOF
 #include <stdlib.h>
 #include <string.h>
 #include "imapopts.h"
+#include "times.h"
 
 struct imapopt_s imapopts[] =
 {
